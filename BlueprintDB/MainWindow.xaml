@@ -1,0 +1,199 @@
+<Window x:Class="Blueprint.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Blueprint.App"
+        mc:Ignorable="d"
+        Tag="FORM_MAIN"
+        Title="Blueprint" Height="620" Width="900"
+        MinHeight="300" MinWidth="500"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <!-- Base style for menu icons -->
+        <Style x:Key="MenuIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily"       Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize"         Value="14"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Menu bar ──────────────────────────────────────────────────── -->
+        <Menu Grid.Row="0" x:Name="mainMenu">
+
+            <!-- Metadata: Programs + Tables hierarchy -->
+            <MenuItem Header="Metadata" Tag="MENU_METADATA">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE8A5;" Style="{StaticResource MenuIcon}"
+                               Foreground="#0F766E"/>
+                </MenuItem.Icon>
+                <MenuItem Header="Programs" Tag="MENU_PROGRAMI" Click="MenuProgrami_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE716;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#1D4ED8"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Tables / Columns" Tag="MENU_TABELE_KOLONE" Click="MenuTabele_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE9D2;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#059669"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Surplus" Tag="MENU_SURPLUS" Click="MenuSurplus_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE710;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#D97706"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Relations" Tag="MENU_RELACIJE" Click="MenuRelacije_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE71B;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#7C3AED"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Rename tables" Tag="MENU_PROMJENA_NAZIVA" Click="MenuPromjenaNaziva_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE8AC;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#92400E"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+
+            <!-- Tools: Wizards + Data Migration + Configuration -->
+            <MenuItem Header="Tools" Tag="MENU_TOOLS">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE90F;" Style="{StaticResource MenuIcon}"
+                               Foreground="#374151"/>
+                </MenuItem.Icon>
+                <MenuItem Header="Schema Import Wizard…" Tag="MENU_WIZARD" Click="MenuWizard_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE82D;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#D97706"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Transfer Data Wizard…" Tag="MENU_TRANSFER_WIZARD" Click="MenuTransferWizard_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE8AB;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0891B2"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Schema Sync Wizard…" Tag="MENU_SCHEMA_SYNC" Click="MenuSchemaSyncWizard_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE895;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#7C3AED"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Batch Schema Sync…" Tag="MENU_BATCH_SYNC" Click="MenuBatchSync_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE8F1;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#7C3AED"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Data Migration" Tag="MENU_TRANSFER" Click="MenuTransfer_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xECC4;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0891B2"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Configuration" Tag="MENU_KONFIGURACIJA" Click="MenuKonfiguracija_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE8B8;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#6366F1"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+
+            <!-- Options: Language -->
+            <MenuItem Header="Options" Tag="MENU_OPTIONS">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE8E3;" Style="{StaticResource MenuIcon}"
+                               Foreground="#374151"/>
+                </MenuItem.Icon>
+                <MenuItem Header="Language" Tag="MENU_LANGUAGE" x:Name="menuLanguage"
+                          SubmenuOpened="MenuLanguage_SubmenuOpened">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE775;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0891B2"/>
+                    </MenuItem.Icon>
+                    <MenuItem Header="…"/>
+                </MenuItem>
+            </MenuItem>
+
+            <!-- License -->
+            <MenuItem Header="License" Tag="MENU_LICENSE" Click="MenuLicense_Click">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE735;" Style="{StaticResource MenuIcon}"
+                               Foreground="#F59E0B"/>
+                </MenuItem.Icon>
+            </MenuItem>
+
+            <!-- Help -->
+            <MenuItem Header="Help" Tag="MENU_HELP">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE897;" Style="{StaticResource MenuIcon}"
+                               Foreground="#0891B2"/>
+                </MenuItem.Icon>
+                <MenuItem Header="Help Topics" Tag="MENU_HELP_TOPICS" Click="MenuHelpTopics_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE897;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0891B2"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Log" Tag="MENU_LOG" Click="MenuLog_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE9D9;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#374151"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="About Blueprint…" Tag="MENU_ABOUT" Click="MenuAbout_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE946;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#6366F1"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+
+            <MenuItem Header="Exit" Tag="MENU_KRAJ" Click="MenuKraj_Click">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE7E8;" Style="{StaticResource MenuIcon}"
+                               Foreground="#DC2626"/>
+                </MenuItem.Icon>
+            </MenuItem>
+
+        </Menu>
+
+        <!-- ── Content area — HomeView ──────────────────────────────────── -->
+        <ContentControl Grid.Row="1" x:Name="mainContent"/>
+
+        <!-- ── Status bar ────────────────────────────────────────────────── -->
+        <StatusBar Grid.Row="2" Background="#F3F4F6">
+            <StatusBarItem>
+                <TextBlock x:Name="lblProgram" FontSize="11" Foreground="#374151"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock x:Name="lblBackend" FontSize="11" Foreground="#6B7280"
+                           TextTrimming="CharacterEllipsis" MaxWidth="400"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <Border x:Name="badgePro" Background="#F59E0B" CornerRadius="3"
+                        Padding="6,1" Margin="0,0,4,0" Visibility="Collapsed">
+                    <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                               Foreground="White" VerticalAlignment="Center"/>
+                </Border>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

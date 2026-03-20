@@ -1,0 +1,93 @@
+<UserControl x:Class="Blueprint.App.KonfiguracijaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Program selection -->
+        <GroupBox Grid.Row="0" Header="Program selection" Tag="GRP_PROGRAM_IZBOR"
+                  Margin="0,0,0,6">
+            <Grid Margin="6,4,6,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Label Content="Program:" Tag="LBL_ODABRANI_PROGRAM"
+                       Grid.Column="0" VerticalAlignment="Center" Padding="0,0,8,0"/>
+                <ComboBox x:Name="cbProgrami" Grid.Column="1"
+                          DisplayMemberPath="Nazivprograma"
+                          SelectedValuePath="Idprograma"
+                          Height="26"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- File browser -->
+        <GroupBox Grid.Row="1" Header="Backend database" Tag="GRP_BACKEND"
+                  Margin="0,0,0,6">
+            <Grid Margin="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230"/>
+                    <ColumnDefinition Width="4"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TreeView x:Name="tvDirs" Grid.Column="0"
+                          SelectedItemChanged="tvDirs_SelectedItemChanged"
+                          TreeViewItem.Expanded="tvDirs_ItemExpanded"/>
+
+                <GridSplitter Grid.Column="1" Width="4"
+                              HorizontalAlignment="Stretch" Background="#DDDDDD"/>
+
+                <ListView x:Name="lvFiles" Grid.Column="2"
+                          SelectionChanged="lvFiles_SelectionChanged">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Name" Width="200"
+                                            DisplayMemberBinding="{Binding Name}"/>
+                            <GridViewColumn Header="Type" Width="60"
+                                            DisplayMemberBinding="{Binding Extension}"/>
+                            <GridViewColumn Header="Modified" Width="90"
+                                            DisplayMemberBinding="{Binding LastWriteTime,
+                                                StringFormat=\{0:yyyy-MM-dd\}}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Grid>
+        </GroupBox>
+
+        <!-- Selected path -->
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Label Content="Path:" Tag="LBL_BACKEND_BAZA"
+                   Grid.Column="0" VerticalAlignment="Center" Padding="0,0,6,0"/>
+            <TextBox x:Name="txtPutanja" Grid.Column="1"
+                     Padding="4,3" IsReadOnly="True"
+                     Background="#F8F8F8" VerticalContentAlignment="Center"/>
+            <Button Content="Browse..." Tag="CMD_PREGLEDAJ"
+                    Grid.Column="2" Width="80" Margin="6,0,0,0"
+                    Click="BtnPregledaj_Click"/>
+        </Grid>
+
+        <!-- OK / Cancel -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="OK" Tag="CMD_OK"
+                    Width="80" Margin="0,0,6,0"
+                    Click="BtnOk_Click"/>
+            <Button Content="Cancel" Tag="CMD_OTKAZI"
+                    Width="80"
+                    Click="BtnOtkazi_Click"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

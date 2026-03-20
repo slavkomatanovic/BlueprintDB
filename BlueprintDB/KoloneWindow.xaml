@@ -1,0 +1,122 @@
+<Window x:Class="Blueprint.App.KoloneWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Tag="FORM_KOLONE"
+        Title="Columns" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style TargetType="Button" BasedOn="{StaticResource FlatBtn}"/>
+    </Window.Resources>
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Table name header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <Label Content="Table:" Tag="LBL_TABELA" VerticalAlignment="Center"/>
+            <TextBlock x:Name="lblTabela" VerticalAlignment="Center"
+                       FontWeight="Bold" FontSize="13"/>
+        </StackPanel>
+
+        <!-- Data grid -->
+        <DataGrid x:Name="dgKolone" Grid.Row="1"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow"
+                  IsReadOnly="True"
+                  SelectionChanged="dgKolone_SelectionChanged">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="[HDR_ID]"           Binding="{Binding Idkolone}"    Width="50"/>
+                <DataGridTextColumn Header="[HDR_NAZIV_KOLONE]" Binding="{Binding Nazivkolone}" Width="*"/>
+                <DataGridTextColumn Header="[HDR_TIP_PODATKA]"  Binding="{Binding Tippodatka}"  Width="110"/>
+                <DataGridTextColumn Header="[HDR_DEFAULT]"      Binding="{Binding Default}"     Width="80"/>
+                <DataGridTextColumn Header="[HDR_VELICINA]"     Binding="{Binding Fieldsize}"   Width="55"/>
+                <DataGridTextColumn Header="[HDR_NULL]"         Binding="{Binding Allownull}"   Width="50"/>
+                <DataGridTextColumn Header="[HDR_INDEXED]"      Binding="{Binding Indexed}"     Width="80"/>
+                <DataGridCheckBoxColumn Header="[HDR_KEY]"      Binding="{Binding Key}"         Width="40"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Input form — 2-row layout inside GroupBox -->
+        <GroupBox Grid.Row="2" Header="Add / Edit" Tag="GRP_UNOS_IZMJENA" Margin="0,6,0,6">
+            <Grid Margin="6,4,6,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Row 1: Column name | Data type (ComboBox) | Size -->
+                <Grid Grid.Row="0" Margin="0,0,0,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="75"/>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="45"/>
+                        <ColumnDefinition Width="70"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Label Content="Column name:" Tag="LBL_NAZIV_KOLONE"
+                           Grid.Column="0" VerticalAlignment="Center"/>
+                    <TextBox x:Name="txtNazivKolone"
+                             Grid.Column="1" Margin="0,2,8,2" Padding="3"/>
+
+                    <Label Content="Data type:" Tag="LBL_TIP_PODATKA"
+                           Grid.Column="2" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cbTipPodatka"
+                              Grid.Column="3" Margin="0,2,8,2" Height="26"/>
+
+                    <Label Content="Size:" Tag="LBL_VELICINA"
+                           Grid.Column="4" VerticalAlignment="Center"/>
+                    <TextBox x:Name="txtFieldsize"
+                             Grid.Column="5" Margin="0,2,0,2" Padding="3"/>
+                </Grid>
+
+                <!-- Row 2: Default | Allow null (ComboBox) | Key -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="45"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="35"/>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Label Content="Default:" Tag="LBL_DEFAULT"
+                           Grid.Column="0" VerticalAlignment="Center"/>
+                    <TextBox x:Name="txtDefault"
+                             Grid.Column="1" Margin="0,2,8,2" Padding="3"/>
+
+                    <Label Content="Null:" Tag="LBL_NULL"
+                           Grid.Column="2" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cbAllowNull"
+                              Grid.Column="3" Margin="0,2,8,2" Height="26"/>
+
+                    <Label Content="Key:" Tag="LBL_KEY"
+                           Grid.Column="4" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="chkKey"
+                              Grid.Column="5" VerticalAlignment="Center"
+                              HorizontalAlignment="Center"/>
+                </Grid>
+            </Grid>
+        </GroupBox>
+
+        <!-- Action buttons -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="New"    Tag="CMD_NOVI"    Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"/>
+            <Button Content="Save"   Tag="CMD_SACUVAJ" Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"/>
+            <Button Content="Delete" Tag="CMD_OBRISI"  Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"/>
+            <Button Content="Close"  Tag="CMD_ZATVORI" Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,96 @@
+<Window x:Class="Blueprint.App.RelacijeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Tag="FORM_RELACIJE"
+        Title="Relations" Height="560" Width="780"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style TargetType="Button" BasedOn="{StaticResource FlatBtn}"/>
+    </Window.Resources>
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Program filter -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <Label Content="Program:" Tag="LBL_PROGRAM" VerticalAlignment="Center"/>
+            <ComboBox x:Name="cbProgrami" Width="250" DisplayMemberPath="Nazivprograma"
+                      SelectedValuePath="Idprograma" SelectionChanged="CbProgrami_SelectionChanged"/>
+        </StackPanel>
+
+        <!-- DataGrid -->
+        <DataGrid x:Name="dgRelacije" Grid.Row="1"
+                  AutoGenerateColumns="False" CanUserAddRows="False"
+                  SelectionMode="Single" SelectionUnit="FullRow" IsReadOnly="True"
+                  SelectionChanged="DgRelacije_SelectionChanged">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="[HDR_ID]"             Binding="{Binding Idrelacije}"          Width="50"/>
+                <DataGridTextColumn Header="[HDR_TABELA_L]"       Binding="{Binding Tabelal}"             Width="*"/>
+                <DataGridTextColumn Header="[HDR_TABELA_D]"       Binding="{Binding Tabelad}"             Width="*"/>
+                <DataGridTextColumn Header="[HDR_POLJE]"          Binding="{Binding Polje}"               Width="120"/>
+                <DataGridTextColumn Header="[HDR_NAZIV_RELACIJE]" Binding="{Binding Nazivrelacije}"       Width="150"/>
+                <DataGridCheckBoxColumn Header="[HDR_CASCADE]"    Binding="{Binding Updatedeletecascade}" Width="70"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Forma -->
+        <GroupBox Grid.Row="2" Header="Add / Edit" Tag="GRP_UNOS_IZMJENA" Margin="0,6,0,6">
+            <Grid Margin="6,4,6,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Row 1: TabelaL, TabelaD, Polje -->
+                <Grid Grid.Row="0" Margin="0,0,0,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="160"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Content="Table L:" Tag="LBL_TABELA_L" Grid.Column="0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cbTabelaL" Grid.Column="1" Margin="0,2,8,2" Height="26"
+                              SelectionChanged="CbTabelaL_SelectionChanged"/>
+                    <Label Content="Table D:" Tag="LBL_TABELA_D" Grid.Column="2" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cbTabelaD" Grid.Column="3" Margin="0,2,8,2" Height="26"/>
+                    <Label Content="Field:" Tag="LBL_POLJE" Grid.Column="4" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cbPolje" Grid.Column="5" Margin="0,2,0,2" Height="26"/>
+                </Grid>
+
+                <!-- Row 2: NazivRelacije, Cascade, Verzija -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="100"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Content="Name:" Tag="LBL_NAZIV_RELACIJE" Grid.Column="0" VerticalAlignment="Center"/>
+                    <TextBox x:Name="txtNazivRelacije" Grid.Column="1" Margin="0,2,8,2" Padding="3"/>
+                    <Label Content="Version:" Tag="LBL_VERZIJA" Grid.Column="2" VerticalAlignment="Center"/>
+                    <TextBox x:Name="txtVerzija" Grid.Column="3" Width="80" Margin="0,2,8,2" Padding="3"/>
+                    <Label Content="Cascade:" Tag="LBL_CASCADE" Grid.Column="4" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="chkCascade" Grid.Column="5" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </Grid>
+            </Grid>
+        </GroupBox>
+
+        <!-- Dugmad -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="New"      Tag="CMD_NOVI"    Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"/>
+            <Button Content="Save"     Tag="CMD_SACUVAJ" Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"/>
+            <Button Content="Delete"   Tag="CMD_OBRISI"  Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"/>
+            <Button Content="Auto-name" Tag="CMD_SREDI"  Width="90" Margin="4,0" Click="BtnSredi_Click"   Background="#0369A1"/>
+            <Button Content="Close"    Tag="CMD_ZATVORI" Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"/>
+        </StackPanel>
+    </Grid>
+</Window>

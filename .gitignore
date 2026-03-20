@@ -1,0 +1,40 @@
+# Claude Code memory (local only)
+.claude/
+
+# Build output
+BlueprintDB/bin/
+BlueprintDB/obj/
+
+# User-specific Visual Studio files
+*.user
+*.suo
+.vs/
+*.userprefs
+
+# Local database (runtime data, not source)
+database/
+
+# Sensitive files
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Access database files
+*.accdb
+*.mdb
+*.laccdb
+
+# Misc files in root not part of the project
+src/
+src_pragma/
+other/
+*.txt
+*.pdf
+*.docx
+*.py
+*.accdb
+
+# Logs
+*.log
+Export.log

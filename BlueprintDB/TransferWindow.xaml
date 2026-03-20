@@ -1,0 +1,114 @@
+<Window x:Class="Blueprint.App.TransferWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Tag="FORM_TRANSFER"
+        Title="Transfer Database"
+        Height="460" Width="680"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <Style TargetType="Button" BasedOn="{StaticResource FlatBtn}"/>
+    </Window.Resources>
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Program selector -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <Label Content="Program:" Tag="LBL_PROGRAM" VerticalAlignment="Center" Padding="0,0,6,0"/>
+            <ComboBox x:Name="cbProgrami" Width="260"
+                      DisplayMemberPath="Nazivprograma"
+                      SelectedValuePath="Idprograma"/>
+        </StackPanel>
+
+        <!-- Source GroupBox -->
+        <GroupBox Grid.Row="1" Header="Source" Tag="GRP_IZVOR" Margin="0,0,0,8">
+            <Grid Margin="6,6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="76"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 0: type selector -->
+                <Label Grid.Row="0" Grid.Column="0" Content="Type:"    Tag="LBL_TIP"     VerticalAlignment="Center"/>
+                <ComboBox x:Name="cbSrcType" Grid.Row="0" Grid.Column="1" Margin="0,2,8,2"
+                          SelectionChanged="cbSrcType_SelectionChanged"/>
+
+                <!-- Row 1: file path (SQLite / Access) -->
+                <Label   x:Name="lblSrcPath"   Grid.Row="1" Grid.Column="0"
+                         Content="Path:" Tag="LBL_PUTANJA" VerticalAlignment="Center"/>
+                <TextBox x:Name="txtSrcPath"   Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                         Margin="0,2,4,2" Padding="3"/>
+                <Button  x:Name="btnSrcBrowse" Grid.Row="1" Grid.Column="3"
+                         Content="Browse..." Tag="CMD_PREGLEDAJ" Margin="0,2,0,2"
+                         Click="BtnSrcBrowse_Click" Background="#64748B"/>
+
+                <!-- Row 1: MySQL connection string (hidden by default) -->
+                <Label   x:Name="lblSrcCS"   Grid.Row="1" Grid.Column="0"
+                         Content="Conn:" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <TextBox x:Name="txtSrcCS"   Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                         Margin="0,2,0,2" Padding="3" Visibility="Collapsed"
+                         ToolTip="MySQL/MariaDB:  Server=host;Port=3306;Database=db;Uid=user;Pwd=pass;&#x0a;SQL Server:    Server=.\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;&#x0a;PostgreSQL:    Host=host;Database=db;Username=user;Password=pass;&#x0a;Oracle:        Data Source=host:1521/service;User Id=user;Password=pass;&#x0a;DB2 (ODBC):    Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;&#x0a;Firebird:      DataSource=host;Database=C:\path\db.fdb;User=SYSDBA;Password=masterkey;"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Target GroupBox -->
+        <GroupBox Grid.Row="2" Header="Target" Tag="GRP_CILJ" Margin="0,0,0,8">
+            <Grid Margin="6,6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="55"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="76"/>
+                </Grid.ColumnDefinitions>
+
+                <Label Grid.Row="0" Grid.Column="0" Content="Type:"    Tag="LBL_TIP"     VerticalAlignment="Center"/>
+                <ComboBox x:Name="cbTgtType" Grid.Row="0" Grid.Column="1" Margin="0,2,8,2"
+                          SelectionChanged="cbTgtType_SelectionChanged"/>
+
+                <Label   x:Name="lblTgtPath"   Grid.Row="1" Grid.Column="0"
+                         Content="Path:" Tag="LBL_PUTANJA" VerticalAlignment="Center"/>
+                <TextBox x:Name="txtTgtPath"   Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                         Margin="0,2,4,2" Padding="3"/>
+                <Button  x:Name="btnTgtBrowse" Grid.Row="1" Grid.Column="3"
+                         Content="Browse..." Tag="CMD_PREGLEDAJ" Margin="0,2,0,2"
+                         Click="BtnTgtBrowse_Click" Background="#64748B"/>
+
+                <Label   x:Name="lblTgtCS"   Grid.Row="1" Grid.Column="0"
+                         Content="Conn:" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <TextBox x:Name="txtTgtCS"   Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                         Margin="0,2,0,2" Padding="3" Visibility="Collapsed"
+                         ToolTip="MySQL/MariaDB:  Server=host;Port=3306;Database=db;Uid=user;Pwd=pass;&#x0a;SQL Server:    Server=.\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;&#x0a;PostgreSQL:    Host=host;Database=db;Username=user;Password=pass;&#x0a;Oracle:        Data Source=host:1521/service;User Id=user;Password=pass;&#x0a;DB2 (ODBC):    Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;&#x0a;Firebird:      DataSource=host;Database=C:\path\db.fdb;User=SYSDBA;Password=masterkey;"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Progress -->
+        <StackPanel Grid.Row="3" Margin="0,0,0,10">
+            <TextBlock x:Name="lblStatus" FontSize="11" Foreground="#374151" Margin="0,0,0,4"/>
+            <ProgressBar x:Name="progressBar" Height="14" Minimum="0" Maximum="100"/>
+        </StackPanel>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="btnTransfer" Content="Transfer" Tag="CMD_TRANSFER"
+                    Width="90" Margin="4,0" Click="BtnTransfer_Click" Background="#0369A1"/>
+            <Button Content="Close" Tag="CMD_ZATVORI"
+                    Width="80" Margin="4,0" Click="BtnClose_Click" Background="#475569"/>
+        </StackPanel>
+    </Grid>
+</Window>

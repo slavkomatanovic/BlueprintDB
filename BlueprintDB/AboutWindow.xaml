@@ -1,0 +1,96 @@
+<Window x:Class="Blueprint.App.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="About Blueprint" Height="340" Width="460"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="#F9FAFB">
+    <Window.Resources>
+        <Style x:Key="LabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground"  Value="#6B7280"/>
+            <Setter Property="FontSize"    Value="11"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ValueStyle" TargetType="TextBlock">
+            <Setter Property="Foreground"  Value="#111827"/>
+            <Setter Property="FontSize"    Value="11"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24,20,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="32" Foreground="#6366F1"
+                       VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Blueprint" FontSize="20" FontWeight="Bold"
+                           Foreground="#1F2937"/>
+                <TextBlock x:Name="lblVersion" FontSize="11" Foreground="#6B7280"
+                           Margin="0,2,0,0"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Info grid -->
+        <Border Grid.Row="2" Background="White" BorderBrush="#E5E7EB"
+                BorderThickness="1" CornerRadius="6" Padding="14,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="28"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Version" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="lblVersionValue" Style="{StaticResource ValueStyle}"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="License" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="lblLicense" Style="{StaticResource ValueStyle}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Metadata database" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" x:Name="lblMetadataPath"
+                           Style="{StaticResource ValueStyle}"
+                           ToolTip="Click to copy path to clipboard"
+                           Cursor="Hand"
+                           MouseLeftButtonUp="LblMetadataPath_Click"
+                           Foreground="#1D4ED8" TextDecorations="Underline"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Database engine" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="SQLite (via EF Core 8)" Style="{StaticResource ValueStyle}"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text=".NET runtime" Style="{StaticResource LabelStyle}"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" x:Name="lblRuntime" Style="{StaticResource ValueStyle}"/>
+            </Grid>
+        </Border>
+
+        <!-- Close button -->
+        <Button Grid.Row="4" Content="Close" IsDefault="True" IsCancel="True"
+                HorizontalAlignment="Right" Width="80"
+                Click="BtnClose_Click">
+            <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource FlatBtn}">
+                    <Setter Property="Background" Value="#64748B"/>
+                </Style>
+            </Button.Style>
+        </Button>
+    </Grid>
+</Window>
