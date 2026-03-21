@@ -85,7 +85,8 @@
                 <Grid x:Name="csPanel" Grid.Row="1" Visibility="Collapsed" VerticalAlignment="Top" Margin="0,4,0,0">
                     <TextBox x:Name="txtCs" Padding="7,5" FontSize="12"
                              BorderBrush="#D1D5DB" TextWrapping="Wrap"
-                             TextChanged="TxtCs_TextChanged"/>
+                             TextChanged="TxtCs_TextChanged"
+                             LostFocus="TxtCs_LostFocus"/>
                     <TextBlock x:Name="hintCs" IsHitTestVisible="False"
                                VerticalAlignment="Center" Margin="9,0,0,0"
                                Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
@@ -129,12 +130,21 @@
             <StackPanel Margin="6,4">
                 <CheckBox x:Name="chkBrisiNepotrebno" Tag="CHK_BRISI_NEPOTREBNO"
                           Content="Auto-delete redundant tables and columns" Margin="0,2"/>
+                <!-- Shown only when the backend contains a firmeadrese table -->
+                <StackPanel x:Name="pnlAutoRepair" Visibility="Collapsed" Margin="0,6,0,0">
+                    <CheckBox x:Name="chkAutoRepairAllDatabases"
+                              Content="Auto-repair all databases (firmeadrese)"
+                              ToolTip="When checked, Blueprint will also run Schema Sync on all databases listed in the firmeadrese table of this backend."
+                              Margin="0,2"/>
+                    <TextBlock x:Name="lblFirmeAdreseStatus" FontSize="10" Foreground="#059669"
+                               Margin="20,2,0,0"/>
+                </StackPanel>
             </StackPanel>
         </GroupBox>
 
         <!-- OK / Cancel -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="OK" Tag="CMD_OK"
+            <Button x:Name="btnOk" Content="OK" Tag="CMD_OK"
                     Width="80" Margin="0,0,6,0" IsDefault="True"
                     Click="BtnOk_Click" Background="#15803D"
                     ToolTip="Save configuration and open Schema Sync Wizard"/>

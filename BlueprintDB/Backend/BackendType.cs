@@ -2,6 +2,9 @@ using System.IO;
 
 namespace Blueprint.App.Backend;
 
+/// <summary>A backend entry — label for display, detected type, and connection string / path.</summary>
+public record BackendEntry(string Label, BackendType Type, string Cs);
+
 public enum BackendType
 {
     SQLite,

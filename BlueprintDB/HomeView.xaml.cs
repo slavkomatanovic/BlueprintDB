@@ -39,7 +39,17 @@ public partial class HomeView : UserControl
             pnlGetStarted.Visibility = Visibility.Collapsed;
             return;
         }
-        pnlGetStarted.Visibility = Visibility.Visible;
+
+        try
+        {
+            using var db = new BlueprintDbContext();
+            bool hasProgrami = db.Programis.Any(p => p.Skriven != true);
+            pnlGetStarted.Visibility = hasProgrami ? Visibility.Collapsed : Visibility.Visible;
+        }
+        catch
+        {
+            pnlGetStarted.Visibility = Visibility.Visible;
+        }
     }
 
     private void BtnProgrami_Click(object sender, RoutedEventArgs e)

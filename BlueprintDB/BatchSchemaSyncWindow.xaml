@@ -68,7 +68,8 @@
             <Border Grid.Column="0" BorderBrush="#D1D5DB" BorderThickness="1" CornerRadius="3">
                 <ListBox x:Name="lstBackends" SelectionMode="Extended"
                          FontFamily="Consolas" FontSize="11"
-                         BorderThickness="0"/>
+                         BorderThickness="0"
+                         DisplayMemberPath="Label"/>
             </Border>
 
             <StackPanel Grid.Column="2" VerticalAlignment="Top" Width="110">

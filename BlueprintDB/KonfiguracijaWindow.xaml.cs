@@ -153,10 +153,13 @@ public partial class KonfiguracijaWindow : Window
         }
     }
 
-    private void lvFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void lvFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (lvFiles.SelectedItem is FileInfo fi)
+        {
             txtPutanja.Text = fi.FullName;
+            await CheckForFirmeAdreseAsync();
+        }
     }
 
     // ── Backend type toggle ─────────────────────────────────────────────────
@@ -211,7 +214,7 @@ public partial class KonfiguracijaWindow : Window
 
     // ── Browse buttons ──────────────────────────────────────────────────────
 
-    private void BtnPregledaj_Click(object sender, RoutedEventArgs e)
+    private async void BtnPregledaj_Click(object sender, RoutedEventArgs e)
     {
         var type = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
         var filter = type == BackendType.Access
@@ -227,18 +230,170 @@ public partial class KonfiguracijaWindow : Window
                 : Path.GetDirectoryName(AppState.BackendDatabasePath) ?? @"C:\"
         };
         if (dlg.ShowDialog() == true)
+        {
             txtPutanja.Text = dlg.FileName;
+            await CheckForFirmeAdreseAsync();
+        }
     }
 
-    private void BtnBrowseFolder_Click(object sender, RoutedEventArgs e)
+    private async void BtnBrowseFolder_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFolderDialog { Title = "Select dBase folder" };
-        if (dlg.ShowDialog() == true) txtFolder.Text = dlg.FolderName;
+        if (dlg.ShowDialog() == true)
+        {
+            txtFolder.Text = dlg.FolderName;
+            await CheckForFirmeAdreseAsync();
+        }
+    }
+
+    private async void TxtCs_LostFocus(object sender, RoutedEventArgs e)
+        => await CheckForFirmeAdreseAsync();
+
+    // ── firmeadrese detection ────────────────────────────────────────────────
+
+    private static readonly string[] _firmeAdreseNames =
+        ["firmeadrese", "firmaadresa", "FirmeAdrese"];
+
+    /// <summary>
+    /// Ako adresa sadrži ODBC connection string (npr. "ODBC;DSN=SQLite3 Datasource;DATABASE=C:\...\db.sqlite"),
+    /// izvlači stvarnu putanju iz DATABASE= parametra i vraća je kao čisti file path.
+    /// Za sve ostale formate vraća adresu nepromijenjenu.
+    /// </summary>
+    private static string ResolveAdresa(string adresa)
+    {
+        if (!adresa.StartsWith("ODBC", StringComparison.OrdinalIgnoreCase)) return adresa;
+
+        // Traži DATABASE=<path> — završava na ';' ili kraju stringa
+        var match = System.Text.RegularExpressions.Regex.Match(
+            adresa, @"DATABASE=([^;]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value.Trim() : adresa;
+    }
+
+    // Pravi naziv tabele pronađen u backendu (čuva se radi prikaza u UI porukama)
+    private string? _foundFirmeAdreseTable;
+
+    private async Task CheckForFirmeAdreseAsync()
+    {
+        var cs = GetBackendCs();
+        if (string.IsNullOrWhiteSpace(cs))
+        {
+            pnlAutoRepair.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        BackendType type;
+        try { type = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite"); }
+        catch { return; }
+
+        lblFirmeAdreseStatus.Text = "Checking…";
+        pnlAutoRepair.Visibility  = Visibility.Visible;
+        chkAutoRepairAllDatabases.IsEnabled = false;
+        _foundFirmeAdreseTable = null;
+
+        string? found = await Task.Run(() =>
+        {
+            try
+            {
+                using var c = BackendConnectorFactory.Create(cs, type);
+                c.Open();
+                var tables = c.GetTableNames();
+                return tables.FirstOrDefault(t => _firmeAdreseNames.Any(n =>
+                    string.Equals(t, n, StringComparison.OrdinalIgnoreCase)));
+            }
+            catch { return null; }
+        });
+
+        if (found != null)
+        {
+            _foundFirmeAdreseTable          = found;
+            lblFirmeAdreseStatus.Text       = $"✓ {found} table found";
+            chkAutoRepairAllDatabases.IsEnabled = true;
+        }
+        else
+        {
+            pnlAutoRepair.Visibility = Visibility.Collapsed;
+            chkAutoRepairAllDatabases.IsChecked = false;
+        }
+    }
+
+    private async Task<List<BackendEntry>> ReadFirmeAdreseAsync(string cs, BackendType primaryType)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var connector = BackendConnectorFactory.Create(cs, primaryType);
+                connector.Open();
+
+                var tables = connector.GetTableNames();
+                var tableName = tables.FirstOrDefault(t => _firmeAdreseNames.Any(n =>
+                    string.Equals(t, n, StringComparison.OrdinalIgnoreCase)));
+                if (tableName == null) return [];
+
+                // "adresa" je jedino obavezno polje
+                var columns   = connector.GetColumnNames(tableName);
+                var adresaCol = columns.FirstOrDefault(c =>
+                                    c.Equals("Adresa", StringComparison.OrdinalIgnoreCase));
+                if (adresaCol == null) return [];
+
+                // firmaCol je opcionalan
+                var firmaCol   = columns.FirstOrDefault(c =>
+                                     c.Equals("Firma",      StringComparison.OrdinalIgnoreCase) ||
+                                     c.Equals("nazivfirme", StringComparison.OrdinalIgnoreCase));
+                var skrivenCol = columns.FirstOrDefault(c =>
+                                     c.Equals("skriven", StringComparison.OrdinalIgnoreCase));
+
+                var colsToRead = new List<string> { adresaCol };
+                if (firmaCol   != null) colsToRead.Add(firmaCol);
+                if (skrivenCol != null) colsToRead.Add(skrivenCol);
+
+                var rows    = connector.ReadAll(tableName, colsToRead);
+                var entries = new List<BackendEntry>();
+
+                foreach (var row in rows)
+                {
+                    var adresaRaw = row[adresaCol]?.ToString() ?? "";
+                    if (string.IsNullOrWhiteSpace(adresaRaw)) continue;
+
+                    // skip hidden records (NULL treated as not hidden)
+                    if (skrivenCol != null)
+                    {
+                        var sk = row[skrivenCol];
+                        if (sk != null && sk != DBNull.Value &&
+                            sk.ToString() != "0" && sk is not false and not 0L) continue;
+                    }
+
+                    // Izvuci stvarnu putanju ako je ODBC connection string
+                    var resolvedPath = ResolveAdresa(adresaRaw);
+
+                    BackendType entryType;
+                    try { entryType = BackendConnectorFactory.DetectFromPath(resolvedPath); }
+                    catch (Exception ex)
+                    {
+                        LogService.Warning("Konfiguracija",
+                            $"Cannot detect backend type for '{resolvedPath}': {ex.Message}");
+                        continue;
+                    }
+
+                    var firma = firmaCol != null ? row[firmaCol]?.ToString() : null;
+                    entries.Add(new BackendEntry(
+                        string.IsNullOrWhiteSpace(firma) ? resolvedPath : firma,
+                        entryType, resolvedPath));
+                }
+
+                return entries;
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning("Konfiguracija", $"Error reading firmeadrese: {ex.Message}");
+                return [];
+            }
+        });
     }
 
     // ── OK / Cancel ─────────────────────────────────────────────────────────
 
-    private void BtnOk_Click(object sender, RoutedEventArgs e)
+    private async void BtnOk_Click(object sender, RoutedEventArgs e)
     {
         if (cbProgrami.SelectedItem is not Programi p)
         {
@@ -276,6 +431,34 @@ public partial class KonfiguracijaWindow : Window
         {
             LogService.Error("Konfiguracija", "Error starting schema sync from configuration", ex);
             MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
+        }
+
+        // Ako je označen auto-repair, pročitaj firmeadrese i otvori batch prozor
+        if (chkAutoRepairAllDatabases.IsChecked == true)
+        {
+            var entries = await ReadFirmeAdreseAsync(cs, backendType);
+            if (entries.Count > 0)
+            {
+                try
+                {
+                    var batchWin = new BatchSchemaSyncWindow(p.Idprograma, entries)
+                    {
+                        Owner = Owner
+                    };
+                    batchWin.Show();
+                }
+                catch (Exception ex)
+                {
+                    LogService.Error("Konfiguracija", "Error starting batch sync from firmeadrese", ex);
+                    MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                var tbl = _foundFirmeAdreseTable ?? "firmeadrese";
+                MyMsgBox.Show($"No usable entries found in the '{tbl}' table.",
+                    icon: MessageBoxImage.Warning);
+            }
         }
 
         Close();
