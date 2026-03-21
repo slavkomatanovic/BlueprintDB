@@ -14,18 +14,26 @@ public sealed class SqlServerBackendConnector : IBackendConnector
 {
     private readonly SqlConnection _conn;
     private SqlTransaction? _tx;
+    private string _schema = "dbo";
 
     public SqlServerBackendConnector(string connectionString)
         => _conn = new SqlConnection(connectionString);
 
-    public void Open() => _conn.Open();
+    public void Open()
+    {
+        _conn.Open();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT SCHEMA_NAME()";
+        _schema = cmd.ExecuteScalar()?.ToString() ?? "dbo";
+    }
 
     public IReadOnlyList<string> GetTableNames()
     {
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES " +
-            "WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME";
+            "WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = @s ORDER BY TABLE_NAME";
+        cmd.Parameters.AddWithValue("@s", _schema);
         using var r = cmd.ExecuteReader();
         var list = new List<string>();
         while (r.Read()) list.Add(r.GetString(0));
@@ -37,7 +45,8 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
-            "WHERE TABLE_NAME = @t ORDER BY ORDINAL_POSITION";
+            "WHERE TABLE_SCHEMA = @s AND TABLE_NAME = @t ORDER BY ORDINAL_POSITION";
+        cmd.Parameters.AddWithValue("@s", _schema);
         cmd.Parameters.AddWithValue("@t", tableName);
         using var r = cmd.ExecuteReader();
         var list = new List<string>();
@@ -50,7 +59,7 @@ public sealed class SqlServerBackendConnector : IBackendConnector
     {
         var cols = string.Join(", ", columns.Select(c => $"[{Q(c)}]"));
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = $"SELECT {cols} FROM [{Q(tableName)}]";
+        cmd.CommandText = $"SELECT {cols} FROM [{Q(_schema)}].[{Q(tableName)}]";
         using var r = cmd.ExecuteReader();
         var rows = new List<IReadOnlyDictionary<string, object?>>();
         while (r.Read())
@@ -67,7 +76,7 @@ public sealed class SqlServerBackendConnector : IBackendConnector
     {
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
-        cmd.CommandText = $"DELETE FROM [{Q(tableName)}]";
+        cmd.CommandText = $"DELETE FROM [{Q(_schema)}].[{Q(tableName)}]";
         cmd.ExecuteNonQuery();
     }
 
@@ -76,7 +85,7 @@ public sealed class SqlServerBackendConnector : IBackendConnector
     {
         var colList   = string.Join(", ", columns.Select(c => $"[{Q(c)}]"));
         var paramList = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
-        var sql = $"INSERT INTO [{Q(tableName)}] ({colList}) VALUES ({paramList})";
+        var sql = $"INSERT INTO [{Q(_schema)}].[{Q(tableName)}] ({colList}) VALUES ({paramList})";
 
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
@@ -104,11 +113,13 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         if (pkCols.Count > 0)
             colDefs.Add($"  PRIMARY KEY ({string.Join(", ", pkCols)})");
 
-        // SQL Server has no IF NOT EXISTS shorthand; guard with a metadata check
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
-            $"IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = @tn)\n" +
-            $"  CREATE TABLE [{Q(tableName)}] (\n{string.Join(",\n", colDefs)}\n)";
+            $"IF NOT EXISTS (SELECT 1 FROM sys.tables t " +
+            $"JOIN sys.schemas s ON t.schema_id = s.schema_id " +
+            $"WHERE s.name = @s AND t.name = @tn)\n" +
+            $"  CREATE TABLE [{Q(_schema)}].[{Q(tableName)}] (\n{string.Join(",\n", colDefs)}\n)";
+        cmd.Parameters.AddWithValue("@s", _schema);
         cmd.Parameters.AddWithValue("@tn", tableName);
         cmd.ExecuteNonQuery();
     }
@@ -119,8 +130,9 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             $"IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS " +
-            $"WHERE TABLE_NAME=@tn AND COLUMN_NAME=@cn)\n" +
-            $"  ALTER TABLE [{Q(tableName)}] ADD [{Q(column.Name)}] {type} NULL";
+            $"WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@tn AND COLUMN_NAME=@cn)\n" +
+            $"  ALTER TABLE [{Q(_schema)}].[{Q(tableName)}] ADD [{Q(column.Name)}] {type} NULL";
+        cmd.Parameters.AddWithValue("@s", _schema);
         cmd.Parameters.AddWithValue("@tn", tableName);
         cmd.Parameters.AddWithValue("@cn", column.Name);
         cmd.ExecuteNonQuery();
@@ -130,7 +142,9 @@ public sealed class SqlServerBackendConnector : IBackendConnector
     {
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
-        cmd.CommandText = $"IF OBJECT_ID(N'[dbo].[{Q(tableName)}]','U') IS NOT NULL DROP TABLE [dbo].[{Q(tableName)}]";
+        cmd.CommandText =
+            $"IF OBJECT_ID(N'[{Q(_schema)}].[{Q(tableName)}]','U') IS NOT NULL " +
+            $"DROP TABLE [{Q(_schema)}].[{Q(tableName)}]";
         cmd.ExecuteNonQuery();
     }
 
@@ -138,7 +152,7 @@ public sealed class SqlServerBackendConnector : IBackendConnector
     {
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
-        cmd.CommandText = $"ALTER TABLE [dbo].[{Q(tableName)}] DROP COLUMN [{Q(columnName)}]";
+        cmd.CommandText = $"ALTER TABLE [{Q(_schema)}].[{Q(tableName)}] DROP COLUMN [{Q(columnName)}]";
         cmd.ExecuteNonQuery();
     }
 
@@ -154,7 +168,10 @@ public sealed class SqlServerBackendConnector : IBackendConnector
             "       OBJECT_NAME(fkc.referenced_object_id), " +
             "       COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) " +
             "FROM sys.foreign_keys fk " +
-            "JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id";
+            "JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id " +
+            "JOIN sys.schemas s ON fk.schema_id = s.schema_id " +
+            "WHERE s.name = @s";
+        cmd.Parameters.AddWithValue("@s", _schema);
         using var r = cmd.ExecuteReader();
         var list = new List<ForeignKeyInfo>();
         while (r.Read())
@@ -170,8 +187,8 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             $"IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = @cn)\n" +
-            $"  ALTER TABLE [{Q(childTable)}] ADD CONSTRAINT [{Q(constraintName)}] " +
-            $"  FOREIGN KEY ([{Q(childColumn)}]) REFERENCES [{Q(parentTable)}]([{Q(parentColumn)}])" +
+            $"  ALTER TABLE [{Q(_schema)}].[{Q(childTable)}] ADD CONSTRAINT [{Q(constraintName)}] " +
+            $"  FOREIGN KEY ([{Q(childColumn)}]) REFERENCES [{Q(_schema)}].[{Q(parentTable)}]([{Q(parentColumn)}])" +
             cascadeSql;
         cmd.Parameters.AddWithValue("@cn", constraintName);
         cmd.ExecuteNonQuery();

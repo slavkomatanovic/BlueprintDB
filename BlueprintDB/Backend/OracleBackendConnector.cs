@@ -30,10 +30,11 @@ public sealed class OracleBackendConnector : IBackendConnector
     public IReadOnlyList<string> GetColumnNames(string tableName)
     {
         using var cmd = _conn.CreateCommand();
+        // Oracle stores unquoted names in uppercase — convert to match USER_TAB_COLUMNS
         cmd.CommandText =
             "SELECT COLUMN_NAME FROM USER_TAB_COLUMNS " +
             "WHERE TABLE_NAME = :t ORDER BY COLUMN_ID";
-        cmd.Parameters.Add(new OracleParameter("t", tableName));
+        cmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
         using var r = cmd.ExecuteReader();
         var list = new List<string>();
         while (r.Read()) list.Add(r.GetString(0));
@@ -89,7 +90,13 @@ public sealed class OracleBackendConnector : IBackendConnector
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
-        // Oracle has no IF NOT EXISTS; names unquoted are auto-uppercased
+        // Oracle has no IF NOT EXISTS — guard with USER_TABLES check
+        using var existsCmd = _conn.CreateCommand();
+        existsCmd.CommandText = "SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = :t";
+        existsCmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
+        var count = Convert.ToInt32(existsCmd.ExecuteScalar());
+        if (count > 0) return;
+
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
@@ -107,6 +114,15 @@ public sealed class OracleBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
+        // Oracle has no ADD COLUMN IF NOT EXISTS — guard with USER_TAB_COLUMNS check
+        using var existsCmd = _conn.CreateCommand();
+        existsCmd.CommandText =
+            "SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :t AND COLUMN_NAME = :c";
+        existsCmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
+        existsCmd.Parameters.Add(new OracleParameter("c", column.Name.ToUpperInvariant()));
+        var count = Convert.ToInt32(existsCmd.ExecuteScalar());
+        if (count > 0) return;
+
         var type = string.IsNullOrEmpty(column.SqlType) ? "VARCHAR2(255)" : column.SqlType;
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = $"ALTER TABLE \"{Q(tableName)}\" ADD (\"{Q(column.Name)}\" {type})";
@@ -115,6 +131,13 @@ public sealed class OracleBackendConnector : IBackendConnector
 
     public void DropTable(string tableName)
     {
+        // Oracle has no DROP TABLE IF EXISTS — guard with USER_TABLES check
+        using var existsCmd = _conn.CreateCommand();
+        existsCmd.CommandText = "SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = :t";
+        existsCmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
+        var count = Convert.ToInt32(existsCmd.ExecuteScalar());
+        if (count == 0) return;
+
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = $"DROP TABLE \"{Q(tableName)}\"";

@@ -38,7 +38,8 @@ public sealed class FirebirdBackendConnector : IBackendConnector
             "SELECT TRIM(RDB$FIELD_NAME) FROM RDB$RELATION_FIELDS " +
             "WHERE RDB$RELATION_NAME = @t " +
             "ORDER BY RDB$FIELD_POSITION";
-        cmd.Parameters.AddWithValue("@t", tableName.PadRight(31)); // Firebird CHAR(31) names
+        // Firebird stores relation names as CHAR(31) — pad for exact match in older versions
+        cmd.Parameters.AddWithValue("@t", tableName.PadRight(31));
         using var r = cmd.ExecuteReader();
         var list = new List<string>();
         while (r.Read()) list.Add(r.GetString(0).TrimEnd());
@@ -48,9 +49,9 @@ public sealed class FirebirdBackendConnector : IBackendConnector
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
         string tableName, IReadOnlyList<string> columns)
     {
-        var cols = string.Join(", ", columns.Select(c => $"\"{c}\""));
+        var cols = string.Join(", ", columns.Select(c => $"\"{Q(c)}\""));
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = $"SELECT {cols} FROM \"{tableName}\"";
+        cmd.CommandText = $"SELECT {cols} FROM \"{Q(FbId(tableName))}\"";
         using var r = cmd.ExecuteReader();
         var rows = new List<IReadOnlyDictionary<string, object?>>();
         while (r.Read())
@@ -67,16 +68,16 @@ public sealed class FirebirdBackendConnector : IBackendConnector
     {
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
-        cmd.CommandText = $"DELETE FROM \"{tableName}\"";
+        cmd.CommandText = $"DELETE FROM \"{Q(FbId(tableName))}\"";
         cmd.ExecuteNonQuery();
     }
 
     public void InsertRows(string tableName, IReadOnlyList<string> columns,
                            IEnumerable<IReadOnlyDictionary<string, object?>> rows)
     {
-        var colList   = string.Join(", ", columns.Select(c => $"\"{c}\""));
+        var colList   = string.Join(", ", columns.Select(c => $"\"{Q(FbId(c))}\""));
         var paramList = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
-        var sql = $"INSERT INTO \"{tableName}\" ({colList}) VALUES ({paramList})";
+        var sql = $"INSERT INTO \"{Q(FbId(tableName))}\" ({colList}) VALUES ({paramList})";
 
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
@@ -94,19 +95,26 @@ public sealed class FirebirdBackendConnector : IBackendConnector
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
-        // Firebird names are limited to 31 chars (older) / 63 chars (v4+); no IF NOT EXISTS before v3
-        var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{c.Name.TrimEnd()}\"").ToList();
+        // Firebird has no IF NOT EXISTS before v3; guard with RDB$RELATIONS check
+        using var existsCmd = _conn.CreateCommand();
+        existsCmd.CommandText =
+            "SELECT COUNT(*) FROM RDB$RELATIONS WHERE TRIM(RDB$RELATION_NAME) = @t";
+        existsCmd.Parameters.AddWithValue("@t", tableName.TrimEnd());
+        var count = Convert.ToInt32(existsCmd.ExecuteScalar());
+        if (count > 0) return;
+
+        var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(FbId(c.Name))}\"").ToList();
         var colDefs = columns.Select(c =>
         {
             var type = string.IsNullOrEmpty(c.SqlType) ? "VARCHAR(255)" : c.SqlType;
             var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
-            return $"  \"{c.Name.TrimEnd()}\" {type}{nn}";
+            return $"  \"{Q(FbId(c.Name))}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)
             colDefs.Add($"  PRIMARY KEY ({string.Join(", ", pkCols)})");
 
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = $"CREATE TABLE \"{tableName.TrimEnd()}\" (\n{string.Join(",\n", colDefs)}\n)";
+        cmd.CommandText = $"CREATE TABLE \"{Q(FbId(tableName))}\" (\n{string.Join(",\n", colDefs)}\n)";
         cmd.ExecuteNonQuery();
     }
 
@@ -114,7 +122,8 @@ public sealed class FirebirdBackendConnector : IBackendConnector
     {
         var type = string.IsNullOrEmpty(column.SqlType) ? "VARCHAR(255)" : column.SqlType;
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = $"ALTER TABLE \"{tableName.TrimEnd()}\" ADD \"{column.Name.TrimEnd()}\" {type}";
+        cmd.CommandText =
+            $"ALTER TABLE \"{Q(FbId(tableName))}\" ADD \"{Q(FbId(column.Name))}\" {type}";
         cmd.ExecuteNonQuery();
     }
 
@@ -122,7 +131,7 @@ public sealed class FirebirdBackendConnector : IBackendConnector
     {
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
-        cmd.CommandText = $"DROP TABLE \"{tableName}\"";
+        cmd.CommandText = $"DROP TABLE \"{Q(FbId(tableName))}\"";
         cmd.ExecuteNonQuery();
     }
 
@@ -130,7 +139,7 @@ public sealed class FirebirdBackendConnector : IBackendConnector
     {
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
-        cmd.CommandText = $"ALTER TABLE \"{tableName}\" DROP \"{columnName}\"";
+        cmd.CommandText = $"ALTER TABLE \"{Q(FbId(tableName))}\" DROP \"{Q(FbId(columnName))}\"";
         cmd.ExecuteNonQuery();
     }
 
@@ -166,9 +175,9 @@ public sealed class FirebirdBackendConnector : IBackendConnector
         var cascadeSql = cascade ? " ON DELETE CASCADE ON UPDATE CASCADE" : "";
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
-            $"ALTER TABLE \"{childTable.TrimEnd()}\" ADD CONSTRAINT \"{constraintName.TrimEnd()}\" " +
-            $"FOREIGN KEY (\"{childColumn.TrimEnd()}\") " +
-            $"REFERENCES \"{parentTable.TrimEnd()}\"(\"{parentColumn.TrimEnd()}\")" +
+            $"ALTER TABLE \"{Q(FbId(childTable))}\" ADD CONSTRAINT \"{Q(FbId(constraintName))}\" " +
+            $"FOREIGN KEY (\"{Q(FbId(childColumn))}\") " +
+            $"REFERENCES \"{Q(FbId(parentTable))}\"(\"{Q(FbId(parentColumn))}\")" +
             cascadeSql;
         cmd.ExecuteNonQuery();
     }
@@ -177,4 +186,14 @@ public sealed class FirebirdBackendConnector : IBackendConnector
     public void Commit()   { _tx?.Commit();   _tx = null; }
     public void Rollback() { _tx?.Rollback(); _tx = null; }
     public void Dispose()  { _tx?.Dispose();  _conn.Dispose(); }
+
+    /// <summary>Escapes double quotes by doubling them.</summary>
+    private static string Q(string s) => s.Replace("\"", "\"\"");
+
+    /// <summary>
+    /// Truncates identifier to 31 characters — Firebird's limit for older versions (pre-4.0).
+    /// Firebird 4.0+ supports up to 63 characters.
+    /// </summary>
+    private static string FbId(string name) =>
+        name.Length > 31 ? name[..31].TrimEnd() : name.TrimEnd();
 }

@@ -23,25 +23,26 @@ public sealed class Db2BackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             "SELECT TABNAME FROM SYSCAT.TABLES " +
-            "WHERE TABSCHEMA = CURRENT_SCHEMA AND TYPE = 'T' " +
+            "WHERE TABSCHEMA = CURRENT SCHEMA AND TYPE = 'T' " +
             "ORDER BY TABNAME";
         using var r = cmd.ExecuteReader();
         var list = new List<string>();
-        while (r.Read()) list.Add(r.GetString(0));
+        while (r.Read()) list.Add(r.GetString(0).TrimEnd());
         return list;
     }
 
     public IReadOnlyList<string> GetColumnNames(string tableName)
     {
         using var cmd = _conn.CreateCommand();
+        // ODBC uses positional '?' parameters — name is ignored, only order matters
         cmd.CommandText =
             "SELECT COLNAME FROM SYSCAT.COLUMNS " +
-            "WHERE TABSCHEMA = CURRENT_SCHEMA AND TABNAME = ? " +
+            "WHERE TABSCHEMA = CURRENT SCHEMA AND TABNAME = ? " +
             "ORDER BY COLNO";
-        cmd.Parameters.AddWithValue("t", tableName);
+        cmd.Parameters.AddWithValue("tabname", tableName.ToUpperInvariant());
         using var r = cmd.ExecuteReader();
         var list = new List<string>();
-        while (r.Read()) list.Add(r.GetString(0));
+        while (r.Read()) list.Add(r.GetString(0).TrimEnd());
         return list;
     }
 
@@ -94,6 +95,15 @@ public sealed class Db2BackendConnector : IBackendConnector
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
+        // DB2 has no IF NOT EXISTS — guard with SYSCAT.TABLES check
+        using var existsCmd = _conn.CreateCommand();
+        existsCmd.CommandText =
+            "SELECT COUNT(*) FROM SYSCAT.TABLES " +
+            "WHERE TABSCHEMA = CURRENT SCHEMA AND TABNAME = ?";
+        existsCmd.Parameters.AddWithValue("tabname", tableName.ToUpperInvariant());
+        var count = Convert.ToInt32(existsCmd.ExecuteScalar());
+        if (count > 0) return;
+
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
@@ -113,7 +123,8 @@ public sealed class Db2BackendConnector : IBackendConnector
     {
         var type = string.IsNullOrEmpty(column.SqlType) ? "VARCHAR(255)" : column.SqlType;
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = $"ALTER TABLE \"{Q(tableName)}\" ADD COLUMN \"{Q(column.Name)}\" {type}";
+        cmd.CommandText =
+            $"ALTER TABLE \"{Q(tableName)}\" ADD COLUMN \"{Q(column.Name)}\" {type}";
         cmd.ExecuteNonQuery();
     }
 
@@ -130,6 +141,44 @@ public sealed class Db2BackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = $"ALTER TABLE \"{Q(tableName)}\" DROP COLUMN \"{Q(columnName)}\"";
+        cmd.ExecuteNonQuery();
+    }
+
+    public bool SupportsForeignKeys => true;
+
+    public IReadOnlyList<ForeignKeyInfo> GetForeignKeys()
+    {
+        using var cmd = _conn.CreateCommand();
+        // SYSCAT.KEYCOLUSE holds columns for both FK and referenced PK/UK constraints
+        cmd.CommandText =
+            "SELECT r.CONSTNAME, r.TABNAME, fk.COLNAME, r.REFTABNAME, pk.COLNAME " +
+            "FROM SYSCAT.REFERENCES r " +
+            "JOIN SYSCAT.KEYCOLUSE fk " +
+            "  ON fk.CONSTNAME = r.CONSTNAME AND fk.TABSCHEMA = r.TABSCHEMA AND fk.TABNAME = r.TABNAME " +
+            "JOIN SYSCAT.KEYCOLUSE pk " +
+            "  ON pk.CONSTNAME = r.REFKEYNAME AND pk.COLSEQ = fk.COLSEQ " +
+            "WHERE r.TABSCHEMA = CURRENT SCHEMA " +
+            "ORDER BY r.CONSTNAME, fk.COLSEQ";
+        using var r = cmd.ExecuteReader();
+        var list = new List<ForeignKeyInfo>();
+        while (r.Read())
+            list.Add(new ForeignKeyInfo(
+                r.GetString(0).TrimEnd(), r.GetString(1).TrimEnd(), r.GetString(2).TrimEnd(),
+                r.GetString(3).TrimEnd(), r.GetString(4).TrimEnd()));
+        return list;
+    }
+
+    public void AddForeignKey(string constraintName, string childTable, string childColumn,
+                              string parentTable, string parentColumn, bool cascade)
+    {
+        // DB2 supports ON DELETE CASCADE; ON UPDATE CASCADE is not supported
+        var cascadeSql = cascade ? " ON DELETE CASCADE" : "";
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            $"ALTER TABLE \"{Q(childTable)}\" ADD CONSTRAINT \"{Q(constraintName)}\" " +
+            $"FOREIGN KEY (\"{Q(childColumn)}\") " +
+            $"REFERENCES \"{Q(parentTable)}\"(\"{Q(parentColumn)}\")" +
+            cascadeSql;
         cmd.ExecuteNonQuery();
     }
 
