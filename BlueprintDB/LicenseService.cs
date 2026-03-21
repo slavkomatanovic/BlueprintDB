@@ -36,6 +36,20 @@ public static class LicenseService
     private const string LsValidateUrl   = "https://api.lemonsqueezy.com/v1/licenses/validate";
     private const string LsDeactivateUrl = "https://api.lemonsqueezy.com/v1/licenses/deactivate";
 
+    // ── Test / Production switch ──────────────────────────────────────────────
+    // Set IsTestMode = false and update LsProductId when going live.
+
+#if DEBUG
+    public const bool IsTestMode    = true;
+#else
+    public const bool IsTestMode    = false;
+#endif
+
+    private const int LsTestProductId = 907641;   // BlueprintDB Pro — LS Test Mode
+    private const int LsLiveProductId = 907641;   // TODO: replace with live product ID after LS verification
+
+    private static int LsProductId => IsTestMode ? LsTestProductId : LsLiveProductId;
+
     private static readonly HttpClient _http = new()
     {
         Timeout = TimeSpan.FromSeconds(15)
@@ -167,6 +181,21 @@ public static class LicenseService
                 ActiveKey   = null;
                 _instanceId = null;
                 DeletePersistedKey();
+                return;
+            }
+
+            // Verify product ID on revalidation as well
+            var json = await response.Content.ReadAsStringAsync();
+            var doc  = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("meta", out var meta) &&
+                meta.TryGetProperty("product_id", out var productIdEl) &&
+                productIdEl.GetInt32() != LsProductId)
+            {
+                LogService.Info("License", "Revalidation rejected — wrong product ID.");
+                CurrentTier = LicenseTier.Free;
+                ActiveKey   = null;
+                _instanceId = null;
+                DeletePersistedKey();
             }
         }
         catch
@@ -201,6 +230,15 @@ public static class LicenseService
                 doc.RootElement.TryGetProperty("activated", out var activated) &&
                 activated.GetBoolean())
             {
+                // Verify the key belongs to our product
+                if (doc.RootElement.TryGetProperty("meta", out var meta) &&
+                    meta.TryGetProperty("product_id", out var productIdEl) &&
+                    productIdEl.GetInt32() != LsProductId)
+                {
+                    LogService.Info("License", $"Activation rejected — wrong product ID: {productIdEl.GetInt32()}");
+                    return LicenseActivationResult.InvalidKey;
+                }
+
                 var instanceId = doc.RootElement
                     .GetProperty("instance")
                     .GetProperty("id")

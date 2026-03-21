@@ -62,15 +62,17 @@
 
         <DockPanel Grid.Row="3">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                <Button x:Name="btnImport" Content="Import" Tag="CMD_IMPORT" Width="80" Margin="4,0" Click="BtnImport_Click" Background="#0369A1"/>
-                <Button Content="Reset"  Tag="CMD_RESET"  Width="80" Margin="4,0" Click="BtnReset_Click" Background="#64748B"/>
+                <Button x:Name="btnImport" Content="Import" Tag="CMD_IMPORT" Width="80" Margin="4,0" Click="BtnImport_Click" Background="#0369A1"
+                        ToolTip="Open the Schema Import Wizard to import tables from a live database"/>
+                <Button Content="Reset"  Tag="CMD_RESET"  Width="80" Margin="4,0" Click="BtnReset_Click" Background="#64748B"
+                        ToolTip="Clear the filter and reload all tables for the selected program"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="New"       Tag="CMD_NOVI"       Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"/>
-                <Button Content="Save"      Tag="CMD_SACUVAJ"    Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"/>
-                <Button Content="Delete"    Tag="CMD_OBRISI"     Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"/>
-                <Button Content="Columns →" Tag="CMD_KOLONE_NAV" Width="90" Margin="4,0" Click="BtnKolone_Click"  Background="#2563EB"/>
-                <Button Content="Close"     Tag="CMD_ZATVORI"    Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"/>
+                <Button Content="New"       Tag="CMD_NOVI"       Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"  ToolTip="Clear the form to add a new table"/>
+                <Button Content="Save"      Tag="CMD_SACUVAJ"    Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"  ToolTip="Save the current table (insert or update)"/>
+                <Button Content="Delete"    Tag="CMD_OBRISI"     Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"  ToolTip="Delete the selected table"/>
+                <Button Content="Columns →" Tag="CMD_KOLONE_NAV" Width="90" Margin="4,0" Click="BtnKolone_Click"  Background="#2563EB"  ToolTip="Open the Columns window for the selected table"/>
+                <Button Content="Close"     Tag="CMD_ZATVORI"    Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"  ToolTip="Close this window"/>
             </StackPanel>
         </DockPanel>
     </Grid>

@@ -138,9 +138,14 @@
                     <!-- Connection string -->
                     <TextBlock x:Name="lblCs" Text="Connection string" FontWeight="SemiBold" FontSize="12"
                                Foreground="#374151" Margin="0,14,0,4" Visibility="Collapsed"/>
-                    <TextBox x:Name="txtCs" Padding="7,5" FontSize="12" Visibility="Collapsed"
-                             BorderBrush="#D1D5DB" TextWrapping="Wrap"
-                             ToolTip="MySQL/MariaDB:  Server=host;Port=3306;Database=db;Uid=user;Pwd=pass;&#x0a;SQL Server:    Server=.\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;&#x0a;PostgreSQL:    Host=host;Database=db;Username=user;Password=pass;&#x0a;Oracle:        Data Source=host:1521/service;User Id=user;Password=pass;&#x0a;DB2 (ODBC):    Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;&#x0a;Firebird:      DataSource=host;Database=C:\path\db.fdb;User=SYSDBA;Password=masterkey;"/>
+                    <Grid x:Name="csGrid" Visibility="Collapsed">
+                        <TextBox x:Name="txtCs" Padding="7,5" FontSize="12"
+                                 BorderBrush="#D1D5DB" TextWrapping="Wrap"
+                                 TextChanged="TxtCs_TextChanged"/>
+                        <TextBlock x:Name="hintCs" IsHitTestVisible="False"
+                                   VerticalAlignment="Center" Margin="9,0,0,0"
+                                   Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
+                    </Grid>
                 </StackPanel>
 
                 <!-- Page 3: Import progress (Grid so ListBox can expand) -->
@@ -178,11 +183,14 @@
             <Border Grid.Row="1" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="20,10">
                 <Grid>
                     <Button x:Name="btnCancel" Content="Cancel" HorizontalAlignment="Left"
-                            Width="80" Click="BtnCancel_Click" Background="#64748B"/>
+                            Width="80" Click="BtnCancel_Click" Background="#64748B"
+                            ToolTip="Cancel and close this wizard"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="btnBack" Content="← Back" Width="80" Margin="0,0,8,0"
-                                IsEnabled="False" Click="BtnBack_Click" Background="#475569"/>
-                        <Button x:Name="btnNext" Content="Next →" Width="90" Click="BtnNext_Click" Background="#2563EB"/>
+                                IsEnabled="False" Click="BtnBack_Click" Background="#475569"
+                                ToolTip="Go back to the previous step"/>
+                        <Button x:Name="btnNext" Content="Next →" Width="90" Click="BtnNext_Click" Background="#2563EB"
+                                ToolTip="Proceed to the next step"/>
                     </StackPanel>
                 </Grid>
             </Border>

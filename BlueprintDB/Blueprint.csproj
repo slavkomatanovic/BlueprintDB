@@ -8,6 +8,7 @@
     <AssemblyName>BlueprintApp</AssemblyName>
     <RootNamespace>Blueprint</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <ApplicationIcon>..\icons\pragma.ico</ApplicationIcon>
 
     <!-- Product metadata -->
     <Version>1.0.0</Version>

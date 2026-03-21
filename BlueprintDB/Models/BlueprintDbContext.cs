@@ -57,12 +57,15 @@ public partial class BlueprintDbContext : DbContext
 
     /// <summary>
     /// Returns the full path to BlueprintMetadata.sqlite.
-    /// Uses Environment.ProcessPath so the path is always next to the .exe —
-    /// correct for dev runs, folder publish, and single-file publish alike.
+    /// Stored in %APPDATA%\BlueprintDB\ so the app works without admin rights
+    /// when installed in Program Files.
     /// </summary>
     public static string GetDatabasePath()
     {
-        return Path.Combine(AppContext.BaseDirectory, "BlueprintMetadata.sqlite");
+        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string dir = Path.Combine(appData, "BlueprintDB");
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, "BlueprintMetadata.sqlite");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

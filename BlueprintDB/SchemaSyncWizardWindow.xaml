@@ -119,8 +119,14 @@
                     </Grid>
                     <TextBlock x:Name="lblCs" Text="Connection string" FontWeight="SemiBold" FontSize="12"
                                Foreground="#374151" Margin="0,14,0,4" Visibility="Collapsed"/>
-                    <TextBox x:Name="txtCs" Padding="7,5" FontSize="12"
-                             BorderBrush="#D1D5DB" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <Grid x:Name="csGrid" Visibility="Collapsed">
+                        <TextBox x:Name="txtCs" Padding="7,5" FontSize="12"
+                                 BorderBrush="#D1D5DB" TextWrapping="Wrap"
+                                 TextChanged="TxtCs_TextChanged"/>
+                        <TextBlock x:Name="hintCs" IsHitTestVisible="False"
+                                   VerticalAlignment="Center" Margin="9,0,0,0"
+                                   Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
+                    </Grid>
                 </StackPanel>
 
                 <!-- Page 3: Sync diff + apply -->
@@ -149,6 +155,7 @@
                             Visibility="Collapsed" HorizontalAlignment="Left"
                             Padding="16,6" Margin="0,0,0,8"
                             Background="#9333EA"
+                            ToolTip="Apply detected schema changes (add tables/columns) to the live database"
                             Click="BtnApply_Click"/>
 
                     <!-- Result summary -->
@@ -165,11 +172,14 @@
             <Border Grid.Row="1" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="20,10">
                 <Grid>
                     <Button x:Name="btnCancel" Content="Cancel" HorizontalAlignment="Left"
-                            Width="80" Click="BtnCancel_Click" Background="#64748B"/>
+                            Width="80" Click="BtnCancel_Click" Background="#64748B"
+                            ToolTip="Cancel and close this wizard"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="btnBack" Content="← Back" Width="80" Margin="0,0,8,0"
-                                IsEnabled="False" Click="BtnBack_Click" Background="#475569"/>
-                        <Button x:Name="btnNext" Content="Next →" Width="90" Click="BtnNext_Click" Background="#2563EB"/>
+                                IsEnabled="False" Click="BtnBack_Click" Background="#475569"
+                                ToolTip="Go back to the previous step"/>
+                        <Button x:Name="btnNext" Content="Next →" Width="90" Click="BtnNext_Click" Background="#2563EB"
+                                ToolTip="Proceed to the next step"/>
                     </StackPanel>
                 </Grid>
             </Border>

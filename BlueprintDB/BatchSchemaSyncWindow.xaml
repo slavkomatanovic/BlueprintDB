@@ -73,9 +73,11 @@
 
             <StackPanel Grid.Column="2" VerticalAlignment="Top" Width="110">
                 <Button Content="Add Files…" Tag="CMD_DODAJ_FAJLOVE"
-                        Margin="0,0,0,4" Click="BtnAdd_Click" Background="#15803D"/>
+                        Margin="0,0,0,4" Click="BtnAdd_Click" Background="#15803D"
+                        ToolTip="Add SQLite database files to the batch sync queue"/>
                 <Button Content="Remove" Tag="CMD_UKLONI"
-                        Click="BtnRemove_Click" Background="#64748B"/>
+                        Click="BtnRemove_Click" Background="#64748B"
+                        ToolTip="Remove the selected file from the list"/>
             </StackPanel>
         </Grid>
 
@@ -128,10 +130,12 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button x:Name="btnSyncAll" Content="Sync All" Tag="CMD_SYNC_SVE"
                         Width="90" Margin="0,0,6,0"
-                        Click="BtnSyncAll_Click" Background="#7C3AED"/>
+                        Click="BtnSyncAll_Click" Background="#7C3AED"
+                        ToolTip="Run Schema Sync for all databases in the list"/>
                 <Button Content="Close" Tag="CMD_ZATVORI"
                         Width="80" IsCancel="True"
-                        Click="BtnZatvori_Click" Background="#64748B"/>
+                        Click="BtnZatvori_Click" Background="#64748B"
+                        ToolTip="Close this window"/>
             </StackPanel>
         </Grid>
     </Grid>

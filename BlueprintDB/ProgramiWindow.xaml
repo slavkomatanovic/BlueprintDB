@@ -50,11 +50,11 @@
         </GroupBox>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="New"       Tag="CMD_NOVI"       Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"/>
-            <Button Content="Save"      Tag="CMD_SACUVAJ"    Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"/>
-            <Button Content="Delete"    Tag="CMD_OBRISI"     Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"/>
-            <Button Content="Tables →"  Tag="CMD_TABELE_NAV" Width="90" Margin="4,0" Click="BtnTabele_Click"  Background="#2563EB"/>
-            <Button Content="Close"     Tag="CMD_ZATVORI"    Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"/>
+            <Button Content="New"       Tag="CMD_NOVI"       Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"  ToolTip="Clear the form to add a new program"/>
+            <Button Content="Save"      Tag="CMD_SACUVAJ"    Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"  ToolTip="Save the current program (insert or update)"/>
+            <Button Content="Delete"    Tag="CMD_OBRISI"     Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"  ToolTip="Delete the selected program"/>
+            <Button Content="Tables →"  Tag="CMD_TABELE_NAV" Width="90" Margin="4,0" Click="BtnTabele_Click"  Background="#2563EB"  ToolTip="Open the Tables window for the selected program"/>
+            <Button Content="Close"     Tag="CMD_ZATVORI"    Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"  ToolTip="Close this window"/>
         </StackPanel>
     </Grid>
 </Window>

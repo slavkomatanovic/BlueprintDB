@@ -127,9 +127,30 @@ public partial class WizardWindow : Window
         rowPath.Visibility   = fileVis;
         lblFolder.Visibility = folderVis;
         rowFolder.Visibility = folderVis;
-        lblCs.Visibility     = csVis;
-        txtCs.Visibility     = csVis;
+        lblCs.Visibility    = csVis;
+        csGrid.Visibility   = csVis;
+        if (csVis == Visibility.Visible)
+        {
+            var hint      = GetCsHint(selected!);
+            hintCs.Text   = hint;
+            hintCs.Visibility = txtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            txtCs.ToolTip = hint;
+        }
     }
+
+    private void TxtCs_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        => hintCs.Visibility = txtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private static string GetCsHint(string backend) => backend switch
+    {
+        "MySQL" or "MariaDB" => "Server=host;Port=3306;Database=db;Uid=user;Pwd=password;",
+        "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
+        "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
+        "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
+        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
+        _                    => ""
+    };
 
     private string GetConnectionString()
     {

@@ -1,3 +1,5 @@
+using Blueprint.App.Backend;
+
 namespace Blueprint.App;
 
 /// <summary>
@@ -17,6 +19,9 @@ public static class AppState
     /// (target Access / MySQL / SQLite database, NOT the Blueprint metadata DB).
     /// </summary>
     public static string BackendDatabasePath { get; set; } = "";
+
+    /// <summary>Backend type matching BackendDatabasePath (file path or connection string).</summary>
+    public static BackendType BackendType { get; set; } = BackendType.SQLite;
 
     // ── Options (set by KonfiguracijaWindow) ────────────────────────────────
     public static bool BrisiNepotrebno { get; set; } = false;

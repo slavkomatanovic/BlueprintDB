@@ -86,11 +86,11 @@
 
         <!-- Dugmad -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="New"      Tag="CMD_NOVI"    Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"/>
-            <Button Content="Save"     Tag="CMD_SACUVAJ" Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"/>
-            <Button Content="Delete"   Tag="CMD_OBRISI"  Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"/>
-            <Button Content="Auto-name" Tag="CMD_SREDI"  Width="90" Margin="4,0" Click="BtnSredi_Click"   Background="#0369A1"/>
-            <Button Content="Close"    Tag="CMD_ZATVORI" Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"/>
+            <Button Content="New"      Tag="CMD_NOVI"    Width="80" Margin="4,0" Click="BtnNovi_Click"    Background="#1E3A5F"  ToolTip="Clear the form to add a new relation"/>
+            <Button Content="Save"     Tag="CMD_SACUVAJ" Width="80" Margin="4,0" Click="BtnSacuvaj_Click" Background="#15803D"  ToolTip="Save the current relation (insert or update)"/>
+            <Button Content="Delete"   Tag="CMD_OBRISI"  Width="80" Margin="4,0" Click="BtnObrisi_Click"  Background="#DC2626"  ToolTip="Delete the selected relation"/>
+            <Button Content="Auto-name" Tag="CMD_SREDI"  Width="90" Margin="4,0" Click="BtnSredi_Click"   Background="#0369A1"  ToolTip="Auto-generate a constraint name from the selected tables and columns"/>
+            <Button Content="Close"    Tag="CMD_ZATVORI" Width="80" Margin="4,0" Click="BtnZatvori_Click" Background="#475569"  ToolTip="Close this window"/>
         </StackPanel>
     </Grid>
 </Window>

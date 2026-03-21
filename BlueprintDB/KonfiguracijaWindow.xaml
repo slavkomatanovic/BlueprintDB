@@ -36,45 +36,78 @@
             </Grid>
         </GroupBox>
 
-        <!-- File browser -->
+        <!-- Backend database -->
         <GroupBox Grid.Row="1" Header="Backend database" Tag="GRP_BACKEND" Margin="0,0,0,6">
             <Grid Margin="4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="230"/>
-                    <ColumnDefinition Width="4"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <!-- Directory tree -->
-                <TreeView x:Name="tvDirs" Grid.Column="0"
-                          SelectedItemChanged="tvDirs_SelectedItemChanged"
-                          TreeViewItem.Expanded="tvDirs_ItemExpanded"
-                          BorderThickness="1"/>
+                <!-- Backend type selector -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                    <Label Content="Type:" Padding="0,0,8,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cbBackendType" Width="180" Height="26"
+                              SelectionChanged="CbBackendType_SelectionChanged"/>
+                </StackPanel>
 
-                <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
-                              Background="#DDDDDD"/>
+                <!-- File browser panel (SQLite, Access) -->
+                <Grid x:Name="fileBrowserPanel" Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="230"/>
+                        <ColumnDefinition Width="4"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TreeView x:Name="tvDirs" Grid.Column="0"
+                              SelectedItemChanged="tvDirs_SelectedItemChanged"
+                              TreeViewItem.Expanded="tvDirs_ItemExpanded"
+                              BorderThickness="1"/>
+                    <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                                  Background="#DDDDDD"/>
+                    <ListView x:Name="lvFiles" Grid.Column="2"
+                              SelectionChanged="lvFiles_SelectionChanged"
+                              BorderThickness="1">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Name" Width="200"
+                                                DisplayMemberBinding="{Binding Name}"/>
+                                <GridViewColumn Header="Type" Width="60"
+                                                DisplayMemberBinding="{Binding Extension}"/>
+                                <GridViewColumn Header="Modified" Width="90"
+                                                DisplayMemberBinding="{Binding LastWriteTime,
+                                                    StringFormat=\{0:yyyy-MM-dd\}}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
 
-                <!-- File list -->
-                <ListView x:Name="lvFiles" Grid.Column="2"
-                          SelectionChanged="lvFiles_SelectionChanged"
-                          BorderThickness="1">
-                    <ListView.View>
-                        <GridView>
-                            <GridViewColumn Header="Name" Width="200"
-                                            DisplayMemberBinding="{Binding Name}"/>
-                            <GridViewColumn Header="Type" Width="60"
-                                            DisplayMemberBinding="{Binding Extension}"/>
-                            <GridViewColumn Header="Modified" Width="90"
-                                            DisplayMemberBinding="{Binding LastWriteTime,
-                                                StringFormat=\{0:yyyy-MM-dd\}}"/>
-                        </GridView>
-                    </ListView.View>
-                </ListView>
+                <!-- Connection string panel (MySQL, MariaDB, SQL Server, PostgreSQL, Firebird, DB2, Oracle) -->
+                <Grid x:Name="csPanel" Grid.Row="1" Visibility="Collapsed" VerticalAlignment="Top" Margin="0,4,0,0">
+                    <TextBox x:Name="txtCs" Padding="7,5" FontSize="12"
+                             BorderBrush="#D1D5DB" TextWrapping="Wrap"
+                             TextChanged="TxtCs_TextChanged"/>
+                    <TextBlock x:Name="hintCs" IsHitTestVisible="False"
+                               VerticalAlignment="Center" Margin="9,0,0,0"
+                               Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
+                </Grid>
+
+                <!-- Folder panel (DBase) -->
+                <Grid x:Name="folderPanel" Grid.Row="1" Visibility="Collapsed" VerticalAlignment="Top" Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="txtFolder" Grid.Column="0" Padding="7,5" FontSize="13"
+                             BorderBrush="#D1D5DB" Margin="0,0,6,0"/>
+                    <Button Grid.Column="1" Content="Browse…" Padding="12,5"
+                            Click="BtnBrowseFolder_Click" Background="#64748B"
+                            ToolTip="Select the folder containing dBase (.dbf) files"/>
+                </Grid>
             </Grid>
         </GroupBox>
 
-        <!-- Selected path row -->
-        <Grid Grid.Row="2" Margin="0,0,0,8">
+        <!-- Selected path row (file-based backends only) -->
+        <Grid x:Name="pathRow" Grid.Row="2" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -87,7 +120,8 @@
                      Background="#F8F8F8" VerticalContentAlignment="Center"/>
             <Button Content="Browse..." Tag="CMD_PREGLEDAJ"
                     Grid.Column="2" Width="80" Margin="6,0,0,0"
-                    Click="BtnPregledaj_Click" Background="#64748B"/>
+                    Click="BtnPregledaj_Click" Background="#64748B"
+                    ToolTip="Open a file browser to select the database file"/>
         </Grid>
 
         <!-- Options -->
@@ -102,10 +136,12 @@
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="OK" Tag="CMD_OK"
                     Width="80" Margin="0,0,6,0" IsDefault="True"
-                    Click="BtnOk_Click" Background="#15803D"/>
+                    Click="BtnOk_Click" Background="#15803D"
+                    ToolTip="Save configuration and open Schema Sync Wizard"/>
             <Button Content="Cancel" Tag="CMD_OTKAZI"
                     Width="80" IsCancel="True"
-                    Click="BtnOtkazi_Click" Background="#64748B"/>
+                    Click="BtnOtkazi_Click" Background="#64748B"
+                    ToolTip="Close without saving"/>
         </StackPanel>
     </Grid>
 </Window>

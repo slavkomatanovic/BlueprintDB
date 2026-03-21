@@ -19,14 +19,33 @@ public partial class KonfiguracijaWindow : Window
     public KonfiguracijaWindow()
     {
         InitializeComponent();
+
+        cbBackendType.ItemsSource  = Enum.GetNames<BackendType>();
+        cbBackendType.SelectedItem = AppState.BackendType.ToString();
+        if (cbBackendType.SelectedIndex < 0) cbBackendType.SelectedIndex = 0;
+
         LoadProgrami();
         BuildDriveTree();
-        if (!string.IsNullOrEmpty(AppState.BackendDatabasePath))
-            txtPutanja.Text = AppState.BackendDatabasePath;
+        RestoreBackendValues();
         chkBrisiNepotrebno.IsChecked = AppState.BrisiNepotrebno;
         LanguageService.TranslateWindow(this);
         WindowSettings.Restore("KonfiguracijaWindow", this);
         Closing += (_, _) => WindowSettings.Save("KonfiguracijaWindow", this);
+    }
+
+    private void RestoreBackendValues()
+    {
+        if (string.IsNullOrEmpty(AppState.BackendDatabasePath)) return;
+        var bt = AppState.BackendType;
+        bool usesCs  = bt is BackendType.MySQL or BackendType.MariaDB or
+                       BackendType.SqlServer or BackendType.PostgreSQL or
+                       BackendType.Firebird  or BackendType.DB2 or BackendType.Oracle;
+        if (usesCs)
+            txtCs.Text = AppState.BackendDatabasePath;
+        else if (bt == BackendType.DBase)
+            txtFolder.Text = AppState.BackendDatabasePath;
+        else
+            txtPutanja.Text = AppState.BackendDatabasePath;
     }
 
     // ── Program ComboBox ────────────────────────────────────────────────────
@@ -140,21 +159,81 @@ public partial class KonfiguracijaWindow : Window
             txtPutanja.Text = fi.FullName;
     }
 
-    // ── Browse button ───────────────────────────────────────────────────────
+    // ── Backend type toggle ─────────────────────────────────────────────────
+
+    private void CbBackendType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (cbBackendType?.SelectedItem is null) return;
+        var sel = cbBackendType.SelectedItem.ToString();
+        bool usesCs  = sel is nameof(BackendType.MySQL) or nameof(BackendType.MariaDB) or
+                       nameof(BackendType.SqlServer) or nameof(BackendType.PostgreSQL) or
+                       nameof(BackendType.Firebird)  or nameof(BackendType.DB2) or nameof(BackendType.Oracle);
+        bool isFolder = sel == nameof(BackendType.DBase);
+
+        fileBrowserPanel.Visibility = !usesCs && !isFolder ? Visibility.Visible : Visibility.Collapsed;
+        csPanel.Visibility          = usesCs    ? Visibility.Visible : Visibility.Collapsed;
+        folderPanel.Visibility      = isFolder  ? Visibility.Visible : Visibility.Collapsed;
+        pathRow.Visibility          = !usesCs && !isFolder ? Visibility.Visible : Visibility.Collapsed;
+
+        if (usesCs)
+        {
+            var hint      = GetCsHint(sel!);
+            hintCs.Text   = hint;
+            hintCs.Visibility = txtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            txtCs.ToolTip = hint;
+        }
+    }
+
+    private void TxtCs_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        => hintCs.Visibility = txtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private static string GetCsHint(string backend) => backend switch
+    {
+        "MySQL" or "MariaDB" => "Server=host;Port=3306;Database=db;Uid=user;Pwd=password;",
+        "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
+        "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
+        "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
+        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
+        _                    => ""
+    };
+
+    private string GetBackendCs()
+    {
+        var type = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
+        bool usesCs = type is BackendType.MySQL or BackendType.MariaDB or
+            BackendType.SqlServer or BackendType.PostgreSQL or
+            BackendType.Firebird  or BackendType.DB2 or BackendType.Oracle;
+        if (usesCs)                    return txtCs.Text.Trim();
+        if (type == BackendType.DBase) return txtFolder.Text.Trim();
+        return txtPutanja.Text.Trim();
+    }
+
+    // ── Browse buttons ──────────────────────────────────────────────────────
 
     private void BtnPregledaj_Click(object sender, RoutedEventArgs e)
     {
+        var type = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
+        var filter = type == BackendType.Access
+            ? "Access files|*.accdb;*.mdb|All files|*.*"
+            : "SQLite files|*.sqlite;*.db|All files|*.*";
+
         var dlg = new OpenFileDialog
         {
             Title  = "Select backend database file",
-            Filter = "Database files|*.sqlite;*.db;*.accdb;*.mdb|All files|*.*",
+            Filter = filter,
             InitialDirectory = string.IsNullOrEmpty(AppState.BackendDatabasePath)
                 ? @"C:\"
                 : Path.GetDirectoryName(AppState.BackendDatabasePath) ?? @"C:\"
         };
-
         if (dlg.ShowDialog() == true)
             txtPutanja.Text = dlg.FileName;
+    }
+
+    private void BtnBrowseFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFolderDialog { Title = "Select dBase folder" };
+        if (dlg.ShowDialog() == true) txtFolder.Text = dlg.FolderName;
     }
 
     // ── OK / Cancel ─────────────────────────────────────────────────────────
@@ -167,24 +246,27 @@ public partial class KonfiguracijaWindow : Window
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(txtPutanja.Text))
+        var cs = GetBackendCs();
+        if (string.IsNullOrWhiteSpace(cs))
         {
             MyMsgBox.Show("MSG_ODABERI_BAZU", icon: MessageBoxImage.Warning);
             return;
         }
 
-        AppState.SelectedProgramId        = p.Idprograma;
-        AppState.SelectedProgramName      = p.Nazivprograma ?? "";
-        AppState.BackendDatabasePath      = txtPutanja.Text.Trim();
-        AppState.BrisiNepotrebno = chkBrisiNepotrebno.IsChecked == true;
+        var backendType = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
+
+        AppState.SelectedProgramId   = p.Idprograma;
+        AppState.SelectedProgramName = p.Nazivprograma ?? "";
+        AppState.BackendDatabasePath = cs;
+        AppState.BackendType         = backendType;
+        AppState.BrisiNepotrebno     = chkBrisiNepotrebno.IsChecked == true;
 
         ConfigurationComplete?.Invoke(this, EventArgs.Empty);
 
         // Otvori Schema Sync wizard sa popunjenim vrijednostima — isti UI i ista logika
         try
         {
-            var backendType = BackendConnectorFactory.DetectFromPath(AppState.BackendDatabasePath);
-            var syncWin     = new SchemaSyncWizardWindow(p.Idprograma, backendType, AppState.BackendDatabasePath)
+            var syncWin = new SchemaSyncWizardWindow(p.Idprograma, backendType, cs)
             {
                 Owner = Owner
             };

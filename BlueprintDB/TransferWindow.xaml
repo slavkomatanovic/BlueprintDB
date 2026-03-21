@@ -106,9 +106,11 @@
         <!-- Buttons -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="btnTransfer" Content="Transfer" Tag="CMD_TRANSFER"
-                    Width="90" Margin="4,0" Click="BtnTransfer_Click" Background="#0369A1"/>
+                    Width="90" Margin="4,0" Click="BtnTransfer_Click" Background="#0369A1"
+                    ToolTip="Start copying data from the source database to the target database"/>
             <Button Content="Close" Tag="CMD_ZATVORI"
-                    Width="80" Margin="4,0" Click="BtnClose_Click" Background="#475569"/>
+                    Width="80" Margin="4,0" Click="BtnClose_Click" Background="#475569"
+                    ToolTip="Close this window"/>
         </StackPanel>
     </Grid>
 </Window>

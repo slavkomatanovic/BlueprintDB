@@ -118,15 +118,21 @@ public partial class TransferWizardWindow : Window
     // ── Backend type toggles ─────────────────────────────────────────────────
 
     private void CbSrcType_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        => Toggle(cbSrcType, lblSrcPath, rowSrcPath, lblSrcFolder, rowSrcFolder, lblSrcCs, txtSrcCs);
+    {
+        Toggle(cbSrcType, lblSrcPath, rowSrcPath, lblSrcFolder, rowSrcFolder, lblSrcCs, srcCsGrid);
+        UpdateHint(cbSrcType, txtSrcCs, hintSrcCs);
+    }
 
     private void CbTgtType_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        => Toggle(cbTgtType, lblTgtPath, rowTgtPath, lblTgtFolder, rowTgtFolder, lblTgtCs, txtTgtCs);
+    {
+        Toggle(cbTgtType, lblTgtPath, rowTgtPath, lblTgtFolder, rowTgtFolder, lblTgtCs, tgtCsGrid);
+        UpdateHint(cbTgtType, txtTgtCs, hintTgtCs);
+    }
 
     private static void Toggle(ComboBox cb,
         TextBlock lblPath, Grid rowPath,
         TextBlock lblFolder, Grid rowFolder,
-        TextBlock lblCs, TextBox txtCs)
+        TextBlock lblCs, UIElement csGrid)
     {
         if (cb?.SelectedItem is null) return;
         var sel = cb.SelectedItem.ToString();
@@ -141,8 +147,34 @@ public partial class TransferWizardWindow : Window
 
         lblPath.Visibility   = fileV;   rowPath.Visibility   = fileV;
         lblFolder.Visibility = folderV; rowFolder.Visibility = folderV;
-        lblCs.Visibility     = csV;     txtCs.Visibility     = csV;
+        lblCs.Visibility     = csV;     csGrid.Visibility    = csV;
     }
+
+    private static void UpdateHint(ComboBox cb, TextBox txtCs, TextBlock hint)
+    {
+        if (cb?.SelectedItem is null) return;
+        var h = GetCsHint(cb.SelectedItem.ToString()!);
+        hint.Text       = h;
+        hint.Visibility = txtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        txtCs.ToolTip   = h;
+    }
+
+    private void TxtSrcCs_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        => hintSrcCs.Visibility = txtSrcCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private void TxtTgtCs_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        => hintTgtCs.Visibility = txtTgtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private static string GetCsHint(string backend) => backend switch
+    {
+        "MySQL" or "MariaDB" => "Server=host;Port=3306;Database=db;Uid=user;Pwd=password;",
+        "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
+        "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
+        "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
+        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
+        _                    => ""
+    };
 
     private static string GetCs(ComboBox cb, TextBox pathBox, TextBox folderBox, TextBox csBox)
     {

@@ -154,8 +154,30 @@ public partial class SchemaSyncWizardWindow : Window
 
         lblPath.Visibility   = fileV;   rowPath.Visibility   = fileV;
         lblFolder.Visibility = folderV; rowFolder.Visibility = folderV;
-        lblCs.Visibility     = csV;     txtCs.Visibility     = csV;
+        lblCs.Visibility    = csV;
+        csGrid.Visibility   = csV;
+        if (csV == Visibility.Visible)
+        {
+            var hint      = GetCsHint(sel!);
+            hintCs.Text   = hint;
+            hintCs.Visibility = txtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            txtCs.ToolTip = hint;
+        }
     }
+
+    private void TxtCs_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        => hintCs.Visibility = txtCs.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private static string GetCsHint(string backend) => backend switch
+    {
+        "MySQL" or "MariaDB" => "Server=host;Port=3306;Database=db;Uid=user;Pwd=password;",
+        "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
+        "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
+        "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
+        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
+        _                    => ""
+    };
 
     private string GetConnectionString()
     {

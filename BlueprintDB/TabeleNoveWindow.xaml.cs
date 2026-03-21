@@ -80,7 +80,7 @@ public partial class TabeleNoveWindow : Window
     private void BtnIzbrisi_Click(object sender, RoutedEventArgs e)
     {
         if (dgTabele.SelectedItem is not TabelaNovRow row) return;
-        var backendType = BackendConnectorFactory.DetectFromPath(AppState.BackendDatabasePath);
+        var backendType = AppState.BackendType;
 
         if (row.Cijelatabela)
         {
@@ -145,7 +145,7 @@ public partial class TabeleNoveWindow : Window
     private void BtnIzbrisiSve_Click(object sender, RoutedEventArgs e)
     {
         if (dgTabele.Items.Count == 0) return;
-        var backendType = BackendConnectorFactory.DetectFromPath(AppState.BackendDatabasePath);
+        var backendType = AppState.BackendType;
 
         // Generiši sve SQL naredbe i pokaži preview
         using var db0 = new BlueprintDbContext();
