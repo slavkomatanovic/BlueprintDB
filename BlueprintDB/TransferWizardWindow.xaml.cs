@@ -17,13 +17,21 @@ public partial class TransferWizardWindow : Window
     {
         InitializeComponent();
 
-        using var db = new BlueprintDbContext();
-        cbProgram.ItemsSource = db.Programis
-            .Where(p => p.Skriven != true)
-            .OrderBy(p => p.Nazivprograma)
-            .ToList();
-        if (AppState.SelectedProgramId > 0)
-            cbProgram.SelectedValue = AppState.SelectedProgramId;
+        try
+        {
+            using var db = new BlueprintDbContext();
+            cbProgram.ItemsSource = db.Programis
+                .Where(p => p.Skriven != true)
+                .OrderBy(p => p.Nazivprograma)
+                .ToList();
+            if (AppState.SelectedProgramId > 0)
+                cbProgram.SelectedValue = AppState.SelectedProgramId;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("TransferWizard", "Failed to load programs", ex);
+            MessageBox.Show(ex.Message, "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
 
         var types = Enum.GetNames<BackendType>();
         cbSrcType.ItemsSource = types;
@@ -74,42 +82,50 @@ public partial class TransferWizardWindow : Window
 
     private async void BtnNext_Click(object sender, RoutedEventArgs e)
     {
-        switch (_currentStep)
+        try
         {
-            case 1:
-                if (cbProgram.SelectedValue is not int)
-                {
-                    MessageBox.Show("Please select a program.", "Validation",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-                ShowStep(2);
-                break;
+            switch (_currentStep)
+            {
+                case 1:
+                    if (cbProgram.SelectedValue is not int)
+                    {
+                        MessageBox.Show("Please select a program.", "Validation",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    ShowStep(2);
+                    break;
 
-            case 2:
-                if (string.IsNullOrWhiteSpace(GetCs(cbSrcType, txtSrcPath, txtSrcFolder, txtSrcCs)))
-                {
-                    MessageBox.Show("Please specify the source database.", "Validation",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-                ShowStep(3);
-                break;
+                case 2:
+                    if (string.IsNullOrWhiteSpace(GetCs(cbSrcType, txtSrcPath, txtSrcFolder, txtSrcCs)))
+                    {
+                        MessageBox.Show("Please specify the source database.", "Validation",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    ShowStep(3);
+                    break;
 
-            case 3:
-                if (string.IsNullOrWhiteSpace(GetCs(cbTgtType, txtTgtPath, txtTgtFolder, txtTgtCs)))
-                {
-                    MessageBox.Show("Please specify the target database.", "Validation",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-                ShowStep(4);
-                await RunTransferAsync();
-                break;
+                case 3:
+                    if (string.IsNullOrWhiteSpace(GetCs(cbTgtType, txtTgtPath, txtTgtFolder, txtTgtCs)))
+                    {
+                        MessageBox.Show("Please specify the target database.", "Validation",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    ShowStep(4);
+                    await RunTransferAsync();
+                    break;
 
-            case 4:
-                Close();
-                break;
+                case 4:
+                    Close();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("TransferWizard", "Unexpected error in wizard navigation", ex);
+            MessageBox.Show(ex.Message, "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -171,7 +187,7 @@ public partial class TransferWizardWindow : Window
         "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
         "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
         "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
-        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;",
         "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
         _                    => ""
     };
@@ -250,10 +266,25 @@ public partial class TransferWizardWindow : Window
 
         try
         {
-            var progress = new Progress<(int Current, int Total, string Table)>(p =>
+            var progress = new Progress<(int TableCurrent, int TableTotal, string Table, int RowCurrent, int RowTotal)>(p =>
             {
-                progressBar.Value = (double)p.Current / p.Total * 100;
-                Log($"  [{p.Current}/{p.Total}]  {p.Table}");
+                progressBar.Value = (double)p.TableCurrent / p.TableTotal * 100;
+
+                if (p.RowTotal > 0)
+                {
+                    pnlRowProgress.Visibility = Visibility.Visible;
+                    progressBarRow.Value      = (double)p.RowCurrent / p.RowTotal * 100;
+                    lblRowStatus.Text         = p.RowCurrent == 0
+                        ? $"{p.Table}  —  {p.RowTotal} rows"
+                        : $"{p.Table}  —  {p.RowCurrent} / {p.RowTotal} rows";
+                }
+                else
+                {
+                    pnlRowProgress.Visibility = Visibility.Collapsed;
+                }
+
+                if (p.RowCurrent == 0)
+                    Log($"  [{p.TableCurrent}/{p.TableTotal}]  {p.Table}");
             });
 
             var result = await Task.Run(() =>
@@ -286,6 +317,7 @@ public partial class TransferWizardWindow : Window
         }
         catch (Exception ex)
         {
+            LogService.Error("TransferWizard", "Transfer failed", ex);
             _transferDone = true;
             lblTitle.Text = "Transfer failed";
             pnlSummary.Background  = new SolidColorBrush(Color.FromRgb(0xFF, 0xF1, 0xF2));

@@ -78,6 +78,21 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
         cmd.ExecuteNonQuery();
     }
 
+    public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT column_name, data_type FROM information_schema.columns " +
+            "WHERE table_schema = @s AND table_name = @t";
+        cmd.Parameters.AddWithValue("@s", _schema);
+        cmd.Parameters.AddWithValue("@t", tableName);
+        using var r = cmd.ExecuteReader();
+        var dict = new Dictionary<string, CanonicalType>(StringComparer.OrdinalIgnoreCase);
+        while (r.Read())
+            dict[r.GetString(0)] = TypeMappings.Resolve(BackendType.PostgreSQL, r.GetString(1));
+        return dict;
+    }
+
     public void InsertRows(string tableName, IReadOnlyList<string> columns,
                            IEnumerable<IReadOnlyDictionary<string, object?>> rows)
     {
@@ -88,15 +103,60 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = sql;
-        for (int i = 0; i < columns.Count; i++)
-            cmd.Parameters.AddWithValue($"@p{i}", DBNull.Value);
 
         foreach (var row in rows)
         {
+            cmd.Parameters.Clear();
             for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters[$"@p{i}"].Value = row[columns[i]] ?? DBNull.Value;
+                cmd.Parameters.AddWithValue($"@p{i}", row[columns[i]] ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
+    }
+
+    private static string MapToPgType(ColumnSchema c)
+    {
+        var t   = (c.SqlType ?? "").Trim().ToUpperInvariant();
+        var len = c.MaxLength > 0 ? c.MaxLength : 0;
+
+        return t switch
+        {
+            "TEXT" or "CLOB" or "NTEXT" or "TINYTEXT"
+                or "MEDIUMTEXT" or "LONGTEXT"          => "TEXT",
+
+            "VARCHAR" or "NVARCHAR" or "CHARACTER VARYING"
+                or "VARYING CHARACTER"                 => len > 0 ? $"VARCHAR({len})" : "TEXT",
+
+            // CHAR without length → PostgreSQL CHAR(1) is a trap — use TEXT
+            "CHAR" or "CHARACTER" or "NCHAR"           => len > 0 ? $"CHAR({len})" : "TEXT",
+
+            "INTEGER" or "INT" or "INT4"
+                or "MEDIUMINT" or "INT32"              => "INTEGER",
+            "BIGINT" or "INT8" or "INT64"              => "BIGINT",
+            "SMALLINT" or "INT2" or "TINYINT" or "INT16" => "SMALLINT",
+
+            "BOOLEAN" or "BOOL"                        => "BOOLEAN",
+            "BIT"                                      => len > 1 ? $"BIT({len})" : "BOOLEAN",
+
+            "REAL" or "FLOAT4" or "FLOAT"              => "REAL",
+            "DOUBLE" or "DOUBLE PRECISION" or "FLOAT8" => "DOUBLE PRECISION",
+
+            "NUMERIC" or "DECIMAL" or "NUMBER"         => len > 0 ? $"NUMERIC({len})" : "NUMERIC",
+
+            "DATE"                                     => "DATE",
+            "TIME"                                     => "TIME",
+            "DATETIME" or "TIMESTAMP"
+                or "TIMESTAMP WITHOUT TIME ZONE"       => "TIMESTAMP",
+            "TIMESTAMP WITH TIME ZONE" or "TIMESTAMPTZ" => "TIMESTAMPTZ",
+
+            "BYTEA" or "BLOB" or "BINARY"
+                or "VARBINARY" or "IMAGE"              => "BYTEA",
+
+            "UUID"                                     => "UUID",
+            "JSON"                                     => "JSON",
+            "JSONB"                                     => "JSONB",
+
+            _ => string.IsNullOrEmpty(c.SqlType) ? "TEXT" : c.SqlType
+        };
     }
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
@@ -104,8 +164,11 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
-            var type = string.IsNullOrEmpty(c.SqlType) ? "TEXT" : c.SqlType;
-            var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
+            var canonical = TypeMappings.Resolve(BackendType.PostgreSQL, c.SqlType);
+            var type = canonical != CanonicalType.Unknown
+                ? TypeMappings.GetDdlType(BackendType.PostgreSQL, canonical, c.MaxLength)
+                : MapToPgType(c);  // keep MapToPgType as fallback for unknown types
+            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)
@@ -120,7 +183,10 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var type = string.IsNullOrEmpty(column.SqlType) ? "TEXT" : column.SqlType;
+        var canonical = TypeMappings.Resolve(BackendType.PostgreSQL, column.SqlType);
+        var type = canonical != CanonicalType.Unknown
+            ? TypeMappings.GetDdlType(BackendType.PostgreSQL, canonical, column.MaxLength)
+            : MapToPgType(column);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             $"ALTER TABLE \"{Q(_schema)}\".\"{Q(tableName)}\" " +

@@ -58,20 +58,31 @@ public static class BackendConnectorFactory
     }
 
     public static IBackendConnector Create(string connectionString, BackendType type)
-        => type switch
+    {
+        try
         {
-            BackendType.SQLite     => new SqliteBackendConnector(connectionString),
-            BackendType.Access     => new AccessBackendConnector(connectionString),
-            BackendType.MySQL      => new MySqlBackendConnector(connectionString),
-            BackendType.MariaDB    => new MySqlBackendConnector(connectionString),
-            BackendType.SqlServer  => new SqlServerBackendConnector(connectionString),
-            BackendType.PostgreSQL => new PostgreSqlBackendConnector(connectionString),
-            BackendType.DBase      => new DBaseBackendConnector(connectionString),
-            BackendType.Firebird   => new FirebirdBackendConnector(connectionString),
-            BackendType.DB2        => new Db2BackendConnector(connectionString),
-            BackendType.Oracle     => new OracleBackendConnector(connectionString),
-            _ => throw new NotSupportedException($"Backend not supported: {type}")
-        };
+            return type switch
+            {
+                BackendType.SQLite     => new SqliteBackendConnector(connectionString),
+                BackendType.Access     => new AccessBackendConnector(connectionString),
+                BackendType.MySQL      => new MySqlBackendConnector(connectionString),
+                BackendType.MariaDB    => new MySqlBackendConnector(connectionString),
+                BackendType.SqlServer  => new SqlServerBackendConnector(connectionString),
+                BackendType.PostgreSQL => new PostgreSqlBackendConnector(connectionString),
+                BackendType.DBase      => new DBaseBackendConnector(connectionString),
+                BackendType.Firebird   => new FirebirdBackendConnector(connectionString),
+                BackendType.DB2        => new Db2BackendConnector(connectionString),
+                BackendType.Oracle     => new OracleBackendConnector(connectionString),
+                _ => throw new NotSupportedException($"Backend not supported: {type}")
+            };
+        }
+        catch (NotSupportedException) { throw; }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Cannot initialize {type} connector: {ex.Message}", ex);
+        }
+    }
 
     /// <summary>Generiše DROP TABLE SQL za zadani backend tip.</summary>
     public static string GetDropTableSql(BackendType type, string tableName) => type switch

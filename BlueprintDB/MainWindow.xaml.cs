@@ -13,7 +13,13 @@ public partial class MainWindow : Window
         ShowHomeView();
         UpdateStatusBar();
         WindowSettings.Restore("MainWindow", this);
-        Loaded   += (_, _) => (mainContent.Content as HomeView)?.RefreshGetStarted();
+        Loaded   += async (_, _) =>
+        {
+            (mainContent.Content as HomeView)?.RefreshGetStarted();
+            var update = await UpdateService.CheckForUpdateAsync();
+            if (update is not null)
+                (mainContent.Content as HomeView)?.ShowUpdateBanner(update);
+        };
         Closing  += (_, _) => WindowSettings.Save("MainWindow", this);
     }
 

@@ -46,6 +46,45 @@ public sealed class FirebirdBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT rf.RDB$FIELD_NAME, f.RDB$FIELD_TYPE, f.RDB$FIELD_SUB_TYPE " +
+            "FROM RDB$RELATION_FIELDS rf " +
+            "JOIN RDB$FIELDS f ON rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME " +
+            "WHERE UPPER(rf.RDB$RELATION_NAME) = UPPER(@t)";
+        cmd.Parameters.AddWithValue("@t", FbId(tableName));
+        using var r = cmd.ExecuteReader();
+        var dict = new Dictionary<string, CanonicalType>(StringComparer.OrdinalIgnoreCase);
+        while (r.Read())
+        {
+            var colName = r.GetString(0).Trim();
+            // Firebird field type codes: 7=SMALLINT,8=INTEGER,16=BIGINT,10=FLOAT,
+            //   27=DOUBLE,37=VARCHAR,14=CHAR,261=BLOB,12=DATE,13=TIME,35=TIMESTAMP,23=BOOLEAN
+            var typeCode = r.GetInt32(1);
+            var subType  = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var canonical = typeCode switch
+            {
+                7   => CanonicalType.Int32,
+                8   => CanonicalType.Int32,
+                16  => CanonicalType.Int64,
+                10  => CanonicalType.Double,
+                27  => CanonicalType.Double,
+                37  => CanonicalType.Text,
+                14  => CanonicalType.Text,
+                261 => subType == 1 ? CanonicalType.Text : CanonicalType.Bytes,
+                12  => CanonicalType.Date,
+                13  => CanonicalType.Text,   // TIME → text
+                35  => CanonicalType.DateTime,
+                23  => CanonicalType.Boolean,
+                _   => CanonicalType.Unknown
+            };
+            dict[colName] = canonical;
+        }
+        return dict;
+    }
+
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
         string tableName, IReadOnlyList<string> columns)
     {
@@ -82,16 +121,23 @@ public sealed class FirebirdBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = sql;
-        for (int i = 0; i < columns.Count; i++)
-            cmd.Parameters.AddWithValue($"@p{i}", DBNull.Value);
-
         foreach (var row in rows)
         {
+            cmd.Parameters.Clear();
             for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters[$"@p{i}"].Value = row[columns[i]] ?? DBNull.Value;
+                cmd.Parameters.AddWithValue($"@p{i}", ToFbValue(row[columns[i]]));
             cmd.ExecuteNonQuery();
         }
     }
+
+    private static object ToFbValue(object? val) => val switch
+    {
+        null          => DBNull.Value,
+        bool b        => b ? 1 : 0,              // Firebird 3+ supports BOOLEAN but SMALLINT is universal
+        DateOnly d    => d.ToDateTime(TimeOnly.MinValue),
+        Guid g        => g.ToString(),
+        _             => val
+    };
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
@@ -106,8 +152,8 @@ public sealed class FirebirdBackendConnector : IBackendConnector
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(FbId(c.Name))}\"").ToList();
         var colDefs = columns.Select(c =>
         {
-            var type = string.IsNullOrEmpty(c.SqlType) ? "VARCHAR(255)" : c.SqlType;
-            var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
+            var type = TypeMappings.ResolveToDdl(BackendType.Firebird, c.SqlType, c.MaxLength);
+            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
             return $"  \"{Q(FbId(c.Name))}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)
@@ -120,7 +166,7 @@ public sealed class FirebirdBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var type = string.IsNullOrEmpty(column.SqlType) ? "VARCHAR(255)" : column.SqlType;
+        var type = TypeMappings.ResolveToDdl(BackendType.Firebird, column.SqlType, column.MaxLength);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             $"ALTER TABLE \"{Q(FbId(tableName))}\" ADD \"{Q(FbId(column.Name))}\" {type}";

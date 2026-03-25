@@ -54,6 +54,21 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
+            "WHERE TABLE_SCHEMA = @s AND TABLE_NAME = @t";
+        cmd.Parameters.AddWithValue("@s", _schema);
+        cmd.Parameters.AddWithValue("@t", tableName);
+        using var r = cmd.ExecuteReader();
+        var dict = new Dictionary<string, CanonicalType>(StringComparer.OrdinalIgnoreCase);
+        while (r.Read())
+            dict[r.GetString(0)] = TypeMappings.Resolve(BackendType.SqlServer, r.GetString(1));
+        return dict;
+    }
+
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
         string tableName, IReadOnlyList<string> columns)
     {
@@ -90,13 +105,11 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = sql;
-        for (int i = 0; i < columns.Count; i++)
-            cmd.Parameters.AddWithValue($"@p{i}", DBNull.Value);
-
         foreach (var row in rows)
         {
+            cmd.Parameters.Clear();
             for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters[$"@p{i}"].Value = row[columns[i]] ?? DBNull.Value;
+                cmd.Parameters.AddWithValue($"@p{i}", row[columns[i]] ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
     }
@@ -106,8 +119,8 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"[{Q(c.Name)}]").ToList();
         var colDefs = columns.Select(c =>
         {
-            var type = string.IsNullOrEmpty(c.SqlType) ? "NVARCHAR(255)" : c.SqlType;
-            var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : " NULL";
+            var type = TypeMappings.ResolveToDdl(BackendType.SqlServer, c.SqlType, c.MaxLength);
+            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : " NULL";
             return $"  [{Q(c.Name)}] {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)
@@ -126,7 +139,7 @@ public sealed class SqlServerBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var type = string.IsNullOrEmpty(column.SqlType) ? "NVARCHAR(255)" : column.SqlType;
+        var type = TypeMappings.ResolveToDdl(BackendType.SqlServer, column.SqlType, column.MaxLength);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             $"IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS " +

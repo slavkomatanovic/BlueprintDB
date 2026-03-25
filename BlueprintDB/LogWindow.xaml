@@ -39,6 +39,9 @@
         <Border Grid.Row="1" Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="10,6">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Tag="CMD_LOG_KOPIRAJ" Content="Copy" Width="70" Margin="0,0,6,0"
+                            Background="#059669" Click="BtnCopy_Click"
+                            ToolTip="Copy selected row(s) to clipboard (Ctrl+C)"/>
                     <Button Tag="CMD_LOG_OSVJEZI" Content="Refresh" Width="80" Margin="0,0,6,0"
                             Background="#0369A1" Click="BtnRefresh_Click"/>
                     <Button Tag="CMD_LOG_OCISTI" Content="Clear log" Width="90" Margin="0,0,6,0"
@@ -67,7 +70,7 @@
         <DataGrid x:Name="dgLog" Grid.Row="2"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
-                  SelectionMode="Single"
+                  SelectionMode="Extended"
                   SelectionChanged="DgLog_SelectionChanged"
                   CanUserResizeRows="False"
                   GridLinesVisibility="Horizontal"

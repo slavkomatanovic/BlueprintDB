@@ -6,6 +6,7 @@ public partial class App : Application
 {
     private void App_Startup(object sender, StartupEventArgs e)
     {
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
         // Global UI thread exception handler — log and show friendly message
         DispatcherUnhandledException += (_, ev) =>
         {
@@ -15,11 +16,28 @@ public partial class App : Application
             ev.Handled = true;
         };
 
-        // Background thread / non-UI exceptions
+        // Background thread / non-UI exceptions (e.g. Oracle internal pool threads)
         AppDomain.CurrentDomain.UnhandledException += (_, ev) =>
         {
             if (ev.ExceptionObject is Exception ex)
+            {
                 LogService.Error("App", "Unhandled background thread exception", ex);
+                // Show dialog on UI thread — process may still terminate after this
+                try
+                {
+                    Dispatcher.Invoke(() =>
+                        MessageBox.Show($"Neočekivana pozadinska greška:\n{ex.Message}",
+                            "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error));
+                }
+                catch { /* dispatcher may be shut down */ }
+            }
+        };
+
+        // Unobserved task exceptions (e.g. Oracle fire-and-forget internal tasks)
+        TaskScheduler.UnobservedTaskException += (_, ev) =>
+        {
+            LogService.Error("App", "Unobserved task exception", ev.Exception);
+            ev.SetObserved(); // prevent process termination
         };
 
         try

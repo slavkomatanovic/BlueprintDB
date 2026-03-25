@@ -43,6 +43,16 @@ public interface IBackendConnector : IDisposable
            .Select(n => new ColumnSchema(n))
            .ToList();
 
+    /// <summary>
+    /// Returns the canonical type for each column in the table.
+    /// Used by the transfer pipeline to normalize values between backends.
+    /// Default implementation returns Unknown for all columns.
+    /// Override in connectors that can determine column types.
+    /// </summary>
+    IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+        => GetColumnNames(tableName)
+           .ToDictionary(c => c, _ => CanonicalType.Unknown, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Reads all rows, returning only the requested columns.</summary>
     IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(string tableName, IReadOnlyList<string> columns);
 

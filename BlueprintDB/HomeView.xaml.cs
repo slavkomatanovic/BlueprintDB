@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using Blueprint.App.Models;
@@ -15,6 +16,8 @@ public partial class HomeView : UserControl
     public event EventHandler? KrajRequested;
     public event EventHandler? KonfiguracijaRequested;
 
+    private UpdateCheckResult? _pendingUpdate;
+
     public HomeView()
     {
         InitializeComponent();
@@ -23,6 +26,28 @@ public partial class HomeView : UserControl
             LanguageService.TranslateLogicalChildren(this);
             RefreshGetStarted();
         };
+    }
+
+    public void ShowUpdateBanner(UpdateCheckResult result)
+    {
+        _pendingUpdate = result;
+        lblUpdateTitle.Text = $"Update Available — Blueprint {result.TagName}";
+        lblUpdateBody.Text  = $"You are running v{result.CurrentVersion.Major}.{result.CurrentVersion.Minor}.{result.CurrentVersion.Build}. " +
+                              $"Version {result.TagName} is now available on GitHub.";
+        pnlUpdate.Visibility = Visibility.Visible;
+    }
+
+    private void BtnDownloadUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null) return;
+        Process.Start(new ProcessStartInfo(_pendingUpdate.ReleaseUrl) { UseShellExecute = true });
+    }
+
+    private void BtnSkipUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null) return;
+        UpdateService.SkipVersion(_pendingUpdate.TagName);
+        pnlUpdate.Visibility = Visibility.Collapsed;
     }
 
     // Tracks whether the user dismissed the banner this session.

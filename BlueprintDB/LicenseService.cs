@@ -94,7 +94,7 @@ public static class LicenseService
             if (param?.Ocitano != null && int.TryParse(param.Ocitano, out var count))
                 return count;
         }
-        catch { }
+        catch (Exception ex) { LogService.Error("License", "Failed to read transfer uses", ex); }
         return 0;
     }
 
@@ -124,7 +124,7 @@ public static class LicenseService
 
             db.SaveChanges();
         }
-        catch { }
+        catch (Exception ex) { LogService.Error("License", "Failed to increment transfer uses", ex); }
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -135,6 +135,12 @@ public static class LicenseService
     /// </summary>
     public static void Initialize()
     {
+#if DEBUG
+        // Developer override — full Pro in Debug builds, no license check needed
+        CurrentTier = LicenseTier.Pro;
+        ActiveKey   = "DEV-BUILD";
+        return;
+#endif
         try
         {
             using var db = new BlueprintDbContext();
@@ -154,7 +160,7 @@ public static class LicenseService
                 CurrentTier = LicenseTier.Pro;  // Trust cache; LS revalidates in background
             }
         }
-        catch { }
+        catch (Exception ex) { LogService.Error("License", "Failed to load license cache", ex); }
 
         // Background revalidation — does not block startup
         if (ActiveKey != null)
@@ -309,7 +315,7 @@ public static class LicenseService
 
             db.SaveChanges();
         }
-        catch { }
+        catch (Exception ex) { LogService.Error("License", "Failed to save license key", ex); }
     }
 
     private static void UpsertParam(BlueprintDbContext db, string name, string value)
@@ -336,6 +342,6 @@ public static class LicenseService
             db.Parametris.RemoveRange(toRemove);
             db.SaveChanges();
         }
-        catch { }
+        catch (Exception ex) { LogService.Error("License", "Failed to clear license cache", ex); }
     }
 }

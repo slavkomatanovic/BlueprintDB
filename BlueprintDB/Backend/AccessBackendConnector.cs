@@ -48,6 +48,35 @@ public sealed class AccessBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+    {
+        var schema = _conn.GetOleDbSchemaTable(
+            OleDbSchemaGuid.Columns, new object?[] { null, null, tableName, null });
+        var dict = new Dictionary<string, CanonicalType>(StringComparer.OrdinalIgnoreCase);
+        if (schema == null) return dict;
+        foreach (DataRow row in schema.Rows)
+        {
+            var colName  = row["COLUMN_NAME"]?.ToString() ?? "";
+            var typeCode = row["DATA_TYPE"] is short s ? (int)s : (row["DATA_TYPE"] is int n ? n : 0);
+            dict[colName] = MapOleDbType(typeCode);
+        }
+        return dict;
+    }
+
+    private static CanonicalType MapOleDbType(int code) => code switch
+    {
+        2 or 3 or 16 or 17 or 18 or 19 => CanonicalType.Int32,     // SmallInt, Integer, TinyInt variants
+        20 or 21                        => CanonicalType.Int64,     // BigInt, UnsignedBigInt
+        4 or 5                          => CanonicalType.Double,    // Single, Double
+        6 or 14 or 131                  => CanonicalType.Decimal,   // Currency, Decimal, Numeric
+        7 or 133 or 134 or 135          => CanonicalType.DateTime,  // Date, DBDate, DBTime, DBTimeStamp
+        11                              => CanonicalType.Boolean,   // Boolean (Yes/No)
+        128 or 204 or 205               => CanonicalType.Bytes,     // Binary, VarBinary, LongVarBinary
+        201 or 203                      => CanonicalType.Text,      // LongVarChar / LongVarWChar (Memo)
+        130 or 200 or 202               => CanonicalType.Text,      // WChar, VarChar, VarWChar
+        _                               => CanonicalType.Text,      // default / GUID / unknown
+    };
+
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
         string tableName, IReadOnlyList<string> columns)
     {
@@ -79,13 +108,11 @@ public sealed class AccessBackendConnector : IBackendConnector
         var sql = $"INSERT INTO [{tableName}] ({colList}) VALUES ({paramList})";
 
         using var cmd = new OleDbCommand(sql, _conn, _tx);
-        for (int i = 0; i < columns.Count; i++)
-            cmd.Parameters.Add($"p{i}", OleDbType.VarWChar);
-
         foreach (var row in rows)
         {
+            cmd.Parameters.Clear();
             for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters[i].Value = row[columns[i]] ?? DBNull.Value;
+                cmd.Parameters.Add(MakeParam(row[columns[i]]));
             cmd.ExecuteNonQuery();
         }
     }
@@ -99,7 +126,10 @@ public sealed class AccessBackendConnector : IBackendConnector
         // Access DDL: [bracket] quoting, no IF NOT EXISTS, single-column PK inline
         var colDefs = columns.Select(c =>
         {
-            var type = NormalizeAccessType(c.SqlType);
+            var canonical = TypeMappings.Resolve(BackendType.Access, c.SqlType);
+            var type = canonical != CanonicalType.Unknown
+                ? TypeMappings.GetDdlType(BackendType.Access, canonical, c.MaxLength)
+                : NormalizeAccessType(c.SqlType);  // keep as fallback
             var pk   = c.PrimaryKey ? " PRIMARY KEY" : "";
             var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
             return $"[{c.Name}] {type}{pk}{nn}";
@@ -129,7 +159,10 @@ public sealed class AccessBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var type = NormalizeAccessType(column.SqlType);
+        var canonical = TypeMappings.Resolve(BackendType.Access, column.SqlType);
+        var type = canonical != CanonicalType.Unknown
+            ? TypeMappings.GetDdlType(BackendType.Access, canonical, column.MaxLength)
+            : NormalizeAccessType(column.SqlType);
         using var cmd = new OleDbCommand(
             $"ALTER TABLE [{tableName}] ADD COLUMN [{column.Name}] {type}", _conn);
         cmd.ExecuteNonQuery();
@@ -219,6 +252,30 @@ public sealed class AccessBackendConnector : IBackendConnector
             $"ALTER TABLE [{childTable}] ADD CONSTRAINT [{constraintName}] " +
             $"FOREIGN KEY ([{childColumn}]) REFERENCES [{parentTable}]([{parentColumn}])", _conn);
         cmd.ExecuteNonQuery();
+    }
+
+    // OleDb ne podržava automatsku konverziju tipova via AddWithValue —
+    // mora se eksplicitno navesti OleDbType koji odgovara Access tipu kolone.
+    // long → Integer (32-bit); Access nema native Int64.
+    private static OleDbParameter MakeParam(object? value)
+    {
+        if (value == null || value is DBNull)
+            return new OleDbParameter("p", OleDbType.VarWChar) { Value = DBNull.Value };
+
+        return value switch
+        {
+            bool b      => new OleDbParameter("p", OleDbType.Boolean)      { Value = b },
+            int n       => new OleDbParameter("p", OleDbType.Integer)      { Value = n },
+            long n      => new OleDbParameter("p", OleDbType.Integer)      { Value = (int)Math.Clamp(n, int.MinValue, int.MaxValue) },
+            double d    => new OleDbParameter("p", OleDbType.Double)       { Value = d },
+            decimal d   => new OleDbParameter("p", OleDbType.Decimal)      { Value = d },
+            DateOnly d  => new OleDbParameter("p", OleDbType.Date)         { Value = d.ToDateTime(TimeOnly.MinValue) },
+            DateTime dt => new OleDbParameter("p", OleDbType.Date)         { Value = dt },
+            byte[] b    => new OleDbParameter("p", OleDbType.LongVarBinary){ Value = b },
+            Guid g      => new OleDbParameter("p", OleDbType.Guid)         { Value = g },
+            string s    => new OleDbParameter("p", OleDbType.LongVarWChar) { Value = s },
+            _           => new OleDbParameter("p", OleDbType.LongVarWChar) { Value = value.ToString() }
+        };
     }
 
     public void BeginTransaction() => _tx = _conn.BeginTransaction();

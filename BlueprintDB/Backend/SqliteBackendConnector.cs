@@ -56,6 +56,12 @@ public sealed class SqliteBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+        => GetColumnSchema(tableName).ToDictionary(
+            c => c.Name,
+            c => TypeMappings.Resolve(BackendType.SQLite, c.SqlType),
+            StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
         string tableName, IReadOnlyList<string> columns)
     {
@@ -92,24 +98,37 @@ public sealed class SqliteBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = sql;
-        for (int i = 0; i < columns.Count; i++)
-            cmd.Parameters.Add(new SqliteParameter($"@p{i}", SqliteType.Text));
 
         foreach (var row in rows)
         {
+            cmd.Parameters.Clear();
             for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters[$"@p{i}"].Value = row[columns[i]] ?? DBNull.Value;
+                cmd.Parameters.AddWithValue($"@p{i}", ToSqliteValue(row[columns[i]]));
             cmd.ExecuteNonQuery();
         }
     }
+
+    private static object ToSqliteValue(object? val) => val switch
+    {
+        null          => DBNull.Value,
+        bool b        => b ? 1L : 0L,
+        int n         => (long)n,
+        DateOnly d    => d.ToString("yyyy-MM-dd"),
+        DateTime dt   => dt.ToString("yyyy-MM-dd HH:mm:ss"),
+        Guid g        => g.ToString(),
+        _             => val
+    };
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
-            var type = string.IsNullOrEmpty(c.SqlType) ? "TEXT" : c.SqlType;
-            var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
+            var canonical = TypeMappings.Resolve(BackendType.SQLite, c.SqlType);
+            var type = canonical != CanonicalType.Unknown
+                ? TypeMappings.GetDdlType(BackendType.SQLite, canonical, c.MaxLength)
+                : (string.IsNullOrEmpty(c.SqlType) ? "TEXT" : c.SqlType);
+            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)

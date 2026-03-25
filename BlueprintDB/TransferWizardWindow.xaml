@@ -194,6 +194,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
@@ -204,11 +205,18 @@
                                TextWrapping="Wrap" Foreground="#6B7280" FontSize="12" Margin="0,0,0,10"/>
                     <ProgressBar Grid.Row="2" x:Name="progressBar" Height="8"
                                  Minimum="0" Maximum="100" Foreground="#0EA5E9"
-                                 Background="#E5E7EB" Margin="0,0,0,8"/>
-                    <ListBox Grid.Row="3" x:Name="lstLog" FontSize="11" Foreground="#374151"
+                                 Background="#E5E7EB" Margin="0,0,0,4"/>
+                    <!-- Per-table row progress -->
+                    <StackPanel Grid.Row="3" x:Name="pnlRowProgress" Visibility="Collapsed" Margin="0,0,0,8">
+                        <TextBlock x:Name="lblRowStatus" FontSize="10" Foreground="#6B7280" Margin="0,0,0,2"/>
+                        <ProgressBar x:Name="progressBarRow" Height="4"
+                                     Minimum="0" Maximum="100" Foreground="#7C3AED"
+                                     Background="#EDE9FE"/>
+                    </StackPanel>
+                    <ListBox Grid.Row="4" x:Name="lstLog" FontSize="11" Foreground="#374151"
                              BorderBrush="#E5E7EB" Margin="0,0,0,8"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
-                    <Border Grid.Row="4" x:Name="pnlSummary" Visibility="Collapsed"
+                    <Border Grid.Row="5" x:Name="pnlSummary" Visibility="Collapsed"
                             Background="#F0FDF4" BorderBrush="#86EFAC" BorderThickness="1"
                             CornerRadius="4" Padding="12,8">
                         <TextBlock x:Name="lblSummary" FontSize="12" Foreground="#166534"

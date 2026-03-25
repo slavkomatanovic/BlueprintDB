@@ -23,14 +23,22 @@ public partial class TransferWindow : Window
 
     private void LoadProgrami()
     {
-        using var db = new BlueprintDbContext();
-        cbProgrami.ItemsSource = db.Programis
-            .Where(p => p.Skriven != true)
-            .OrderBy(p => p.Nazivprograma)
-            .ToList();
+        try
+        {
+            using var db = new BlueprintDbContext();
+            cbProgrami.ItemsSource = db.Programis
+                .Where(p => p.Skriven != true)
+                .OrderBy(p => p.Nazivprograma)
+                .ToList();
 
-        if (AppState.SelectedProgramId > 0)
-            cbProgrami.SelectedValue = AppState.SelectedProgramId;
+            if (AppState.SelectedProgramId > 0)
+                cbProgrami.SelectedValue = AppState.SelectedProgramId;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("TransferWindow", "Failed to load programs", ex);
+            MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
+        }
     }
 
     private void LoadTypeComboBoxes()
@@ -112,6 +120,8 @@ public partial class TransferWindow : Window
 
     private async void BtnTransfer_Click(object sender, RoutedEventArgs e)
     {
+        try
+        {
         if (cbProgrami.SelectedValue is not int programId)
         {
             MyMsgBox.Show("MSG_ODABERI_PROGRAM", icon: MessageBoxImage.Warning);
@@ -152,10 +162,28 @@ public partial class TransferWindow : Window
         progressBar.Value     = 0;
         lblStatus.Text        = LanguageService.T("MSG_TRANSFER_RUNNING");
 
-        var progress = new Progress<(int Current, int Total, string Table)>(p =>
+        progressBarRow.Visibility = Visibility.Collapsed;
+        lblRowStatus.Visibility   = Visibility.Collapsed;
+
+        var progress = new Progress<(int TableCurrent, int TableTotal, string Table, int RowCurrent, int RowTotal)>(p =>
         {
-            progressBar.Value = (double)p.Current / p.Total * 100;
-            lblStatus.Text    = $"{p.Current}/{p.Total}  —  {p.Table}";
+            progressBar.Value = (double)p.TableCurrent / p.TableTotal * 100;
+            lblStatus.Text    = $"{p.TableCurrent}/{p.TableTotal}  —  {p.Table}";
+
+            if (p.RowTotal > 0)
+            {
+                progressBarRow.Visibility = Visibility.Visible;
+                lblRowStatus.Visibility   = Visibility.Visible;
+                progressBarRow.Value      = (double)p.RowCurrent / p.RowTotal * 100;
+                lblRowStatus.Text         = p.RowCurrent == 0
+                    ? $"{p.RowTotal} rows"
+                    : $"{p.RowCurrent} / {p.RowTotal} rows";
+            }
+            else
+            {
+                progressBarRow.Visibility = Visibility.Collapsed;
+                lblRowStatus.Visibility   = Visibility.Collapsed;
+            }
         });
 
         try
@@ -201,6 +229,12 @@ public partial class TransferWindow : Window
         finally
         {
             btnTransfer.IsEnabled = true;
+        }
+        } // outer try
+        catch (Exception ex)
+        {
+            LogService.Error("Transfer", "Unexpected error", ex);
+            MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
         }
     }
 

@@ -46,47 +46,56 @@ public partial class LicenseActivationWindow : Window
 
     private async void BtnActivate_Click(object sender, RoutedEventArgs e)
     {
-        var key = txtKey.Text.Trim();
-        if (string.IsNullOrWhiteSpace(key))
+        try
         {
-            ShowStatus(false, "Please enter a license key.");
-            return;
+            var key = txtKey.Text.Trim();
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                ShowStatus(false, "Please enter a license key.");
+                return;
+            }
+
+            btnActivate.IsEnabled = false;
+            ShowStatus(true, "\uE895  Contacting license server…");
+
+            var result = await LicenseService.ActivateAsync(key);
+
+            switch (result)
+            {
+                case LicenseActivationResult.Success:
+                    ShowStatus(true, "\uE73E  License activated successfully! Blueprint Pro is now active.");
+                    RefreshState();
+                    txtKey.Text = string.Empty;
+                    break;
+
+                case LicenseActivationResult.AlreadyActive:
+                    ShowStatus(true, "\uE73E  This license is already active on this machine.");
+                    btnActivate.IsEnabled = true;
+                    break;
+
+                case LicenseActivationResult.KeyExhausted:
+                    ShowStatus(false, "\uE711  This license key has reached its activation limit.\n" +
+                                      "Deactivate it on another machine first, or purchase a new license.");
+                    btnActivate.IsEnabled = true;
+                    break;
+
+                case LicenseActivationResult.NetworkError:
+                    ShowStatus(false, "\uE704  Could not reach the license server. Please check your internet connection and try again.");
+                    btnActivate.IsEnabled = true;
+                    break;
+
+                case LicenseActivationResult.InvalidKey:
+                default:
+                    ShowStatus(false, "\uE711  Invalid license key. Please check for typos or purchase a new license.");
+                    btnActivate.IsEnabled = true;
+                    break;
+            }
         }
-
-        btnActivate.IsEnabled = false;
-        ShowStatus(true, "\uE895  Contacting license server…");
-
-        var result = await LicenseService.ActivateAsync(key);
-
-        switch (result)
+        catch (Exception ex)
         {
-            case LicenseActivationResult.Success:
-                ShowStatus(true, "\uE73E  License activated successfully! Blueprint Pro is now active.");
-                RefreshState();
-                txtKey.Text = string.Empty;
-                break;
-
-            case LicenseActivationResult.AlreadyActive:
-                ShowStatus(true, "\uE73E  This license is already active on this machine.");
-                btnActivate.IsEnabled = true;
-                break;
-
-            case LicenseActivationResult.KeyExhausted:
-                ShowStatus(false, "\uE711  This license key has reached its activation limit.\n" +
-                                  "Deactivate it on another machine first, or purchase a new license.");
-                btnActivate.IsEnabled = true;
-                break;
-
-            case LicenseActivationResult.NetworkError:
-                ShowStatus(false, "\uE704  Could not reach the license server. Please check your internet connection and try again.");
-                btnActivate.IsEnabled = true;
-                break;
-
-            case LicenseActivationResult.InvalidKey:
-            default:
-                ShowStatus(false, "\uE711  Invalid license key. Please check for typos or purchase a new license.");
-                btnActivate.IsEnabled = true;
-                break;
+            LogService.Error("License", "Activation error", ex);
+            ShowStatus(false, $"Unexpected error: {ex.Message}");
+            btnActivate.IsEnabled = true;
         }
     }
 
@@ -97,17 +106,25 @@ public partial class LicenseActivationWindow : Window
 
     private async void LblDeactivate_Click(object sender, MouseButtonEventArgs e)
     {
-        var confirm = MessageBox.Show(
-            "Deactivate Blueprint Pro on this machine?\n\nThis will free up one activation slot.",
-            "Deactivate License",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+        try
+        {
+            var confirm = MessageBox.Show(
+                "Deactivate Blueprint Pro on this machine?\n\nThis will free up one activation slot.",
+                "Deactivate License",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
 
-        if (confirm != MessageBoxResult.Yes) return;
+            if (confirm != MessageBoxResult.Yes) return;
 
-        await LicenseService.DeactivateAsync();
-        RefreshState();
-        ShowStatus(false, "License deactivated. The app is now running in Free mode.");
+            await LicenseService.DeactivateAsync();
+            RefreshState();
+            ShowStatus(false, "License deactivated. The app is now running in Free mode.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("License", "Deactivation error", ex);
+            ShowStatus(false, $"Unexpected error: {ex.Message}");
+        }
     }
 
     private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();

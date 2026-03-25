@@ -41,12 +41,29 @@ public sealed class OracleBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+    {
+        using var cmd = _conn.CreateCommand();
+        // USER_TAB_COLUMNS is scoped to the current user — much faster than ALL_TAB_COLUMNS
+        cmd.CommandText =
+            "SELECT COLUMN_NAME, DATA_TYPE FROM USER_TAB_COLUMNS " +
+            "WHERE TABLE_NAME = :t ORDER BY COLUMN_ID";
+        cmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
+        using var r = cmd.ExecuteReader();
+        var dict = new Dictionary<string, CanonicalType>(StringComparer.OrdinalIgnoreCase);
+        while (r.Read())
+            dict[r.GetString(0)] = TypeMappings.Resolve(BackendType.Oracle, r.GetString(1));
+        return dict;
+    }
+
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
         string tableName, IReadOnlyList<string> columns)
     {
         var cols = string.Join(", ", columns.Select(c => $"\"{Q(c)}\""));
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = $"SELECT {cols} FROM \"{Q(tableName)}\"";
+        // Fetch all LOB data inline — prevents per-row network roundtrips for CLOB/BLOB columns
+        cmd.InitialLOBFetchSize = -1;
         using var r = cmd.ExecuteReader();
         var rows = new List<IReadOnlyDictionary<string, object?>>();
         while (r.Read())
@@ -77,16 +94,23 @@ public sealed class OracleBackendConnector : IBackendConnector
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = sql;
-        for (int i = 0; i < columns.Count; i++)
-            cmd.Parameters.Add(new OracleParameter($"p{i}", DBNull.Value));
-
         foreach (var row in rows)
         {
+            cmd.Parameters.Clear();
             for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters[i].Value = row[columns[i]] ?? DBNull.Value;
+                cmd.Parameters.Add(new OracleParameter($"p{i}", ToOracleValue(row[columns[i]])));
             cmd.ExecuteNonQuery();
         }
     }
+
+    private static object ToOracleValue(object? val) => val switch
+    {
+        null       => DBNull.Value,
+        bool b     => b ? 1 : 0,
+        DateOnly d => d.ToDateTime(TimeOnly.MinValue),
+        Guid g     => g.ToString(),
+        _          => val
+    };
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
@@ -100,8 +124,8 @@ public sealed class OracleBackendConnector : IBackendConnector
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
-            var type = string.IsNullOrEmpty(c.SqlType) ? "VARCHAR2(255)" : c.SqlType;
-            var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
+            var type = TypeMappings.ResolveToDdl(BackendType.Oracle, c.SqlType, c.MaxLength);
+            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)
@@ -123,7 +147,7 @@ public sealed class OracleBackendConnector : IBackendConnector
         var count = Convert.ToInt32(existsCmd.ExecuteScalar());
         if (count > 0) return;
 
-        var type = string.IsNullOrEmpty(column.SqlType) ? "VARCHAR2(255)" : column.SqlType;
+        var type = TypeMappings.ResolveToDdl(BackendType.Oracle, column.SqlType, column.MaxLength);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = $"ALTER TABLE \"{Q(tableName)}\" ADD (\"{Q(column.Name)}\" {type})";
         cmd.ExecuteNonQuery();
@@ -191,5 +215,7 @@ public sealed class OracleBackendConnector : IBackendConnector
     public void Rollback() { _tx?.Rollback(); _tx = null; }
     public void Dispose()  { _tx?.Dispose();  _conn.Dispose(); }
 
-    private static string Q(string s) => s.Replace("\"", "\"\"");
+    // Oracle stores unquoted identifiers in UPPERCASE in the data dictionary.
+    // We always uppercase before quoting so DDL/DML identifiers match dictionary lookups.
+    private static string Q(string s) => s.ToUpperInvariant().Replace("\"", "\"\"");
 }

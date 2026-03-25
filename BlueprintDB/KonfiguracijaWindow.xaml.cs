@@ -155,11 +155,15 @@ public partial class KonfiguracijaWindow : Window
 
     private async void lvFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (lvFiles.SelectedItem is FileInfo fi)
+        try
         {
-            txtPutanja.Text = fi.FullName;
-            await CheckForFirmeAdreseAsync();
+            if (lvFiles.SelectedItem is FileInfo fi)
+            {
+                txtPutanja.Text = fi.FullName;
+                await CheckForFirmeAdreseAsync();
+            }
         }
+        catch (Exception ex) { LogService.Error("Konfiguracija", "File selection error", ex); }
     }
 
     // ── Backend type toggle ─────────────────────────────────────────────────
@@ -196,7 +200,7 @@ public partial class KonfiguracijaWindow : Window
         "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
         "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
         "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
-        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;",
         "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
         _                    => ""
     };
@@ -216,38 +220,49 @@ public partial class KonfiguracijaWindow : Window
 
     private async void BtnPregledaj_Click(object sender, RoutedEventArgs e)
     {
-        var type = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
-        var filter = type == BackendType.Access
-            ? "Access files|*.accdb;*.mdb|All files|*.*"
-            : "SQLite files|*.sqlite;*.db|All files|*.*";
+        try
+        {
+            var type = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
+            var filter = type == BackendType.Access
+                ? "Access files|*.accdb;*.mdb|All files|*.*"
+                : "SQLite files|*.sqlite;*.db|All files|*.*";
 
-        var dlg = new OpenFileDialog
-        {
-            Title  = "Select backend database file",
-            Filter = filter,
-            InitialDirectory = string.IsNullOrEmpty(AppState.BackendDatabasePath)
-                ? @"C:\"
-                : Path.GetDirectoryName(AppState.BackendDatabasePath) ?? @"C:\"
-        };
-        if (dlg.ShowDialog() == true)
-        {
-            txtPutanja.Text = dlg.FileName;
-            await CheckForFirmeAdreseAsync();
+            var dlg = new OpenFileDialog
+            {
+                Title  = "Select backend database file",
+                Filter = filter,
+                InitialDirectory = string.IsNullOrEmpty(AppState.BackendDatabasePath)
+                    ? @"C:\"
+                    : Path.GetDirectoryName(AppState.BackendDatabasePath) ?? @"C:\"
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                txtPutanja.Text = dlg.FileName;
+                await CheckForFirmeAdreseAsync();
+            }
         }
+        catch (Exception ex) { LogService.Error("Konfiguracija", "Browse error", ex); }
     }
 
     private async void BtnBrowseFolder_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFolderDialog { Title = "Select dBase folder" };
-        if (dlg.ShowDialog() == true)
+        try
         {
-            txtFolder.Text = dlg.FolderName;
-            await CheckForFirmeAdreseAsync();
+            var dlg = new OpenFolderDialog { Title = "Select dBase folder" };
+            if (dlg.ShowDialog() == true)
+            {
+                txtFolder.Text = dlg.FolderName;
+                await CheckForFirmeAdreseAsync();
+            }
         }
+        catch (Exception ex) { LogService.Error("Konfiguracija", "Browse folder error", ex); }
     }
 
     private async void TxtCs_LostFocus(object sender, RoutedEventArgs e)
-        => await CheckForFirmeAdreseAsync();
+    {
+        try { await CheckForFirmeAdreseAsync(); }
+        catch (Exception ex) { LogService.Error("Konfiguracija", "Connection check error", ex); }
+    }
 
     // ── firmeadrese detection ────────────────────────────────────────────────
 
@@ -300,7 +315,11 @@ public partial class KonfiguracijaWindow : Window
                 return tables.FirstOrDefault(t => _firmeAdreseNames.Any(n =>
                     string.Equals(t, n, StringComparison.OrdinalIgnoreCase)));
             }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                LogService.Error("Konfiguracija", "Backend connection check failed", ex);
+                return null;
+            }
         });
 
         if (found != null)
@@ -395,73 +414,81 @@ public partial class KonfiguracijaWindow : Window
 
     private async void BtnOk_Click(object sender, RoutedEventArgs e)
     {
-        if (cbProgrami.SelectedItem is not Programi p)
-        {
-            MyMsgBox.Show("MSG_ODABERI_PROGRAM_KONFIG", icon: MessageBoxImage.Warning);
-            return;
-        }
-
-        var cs = GetBackendCs();
-        if (string.IsNullOrWhiteSpace(cs))
-        {
-            MyMsgBox.Show("MSG_ODABERI_BAZU", icon: MessageBoxImage.Warning);
-            return;
-        }
-
-        var backendType = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
-
-        AppState.SelectedProgramId   = p.Idprograma;
-        AppState.SelectedProgramName = p.Nazivprograma ?? "";
-        AppState.BackendDatabasePath = cs;
-        AppState.BackendType         = backendType;
-        AppState.BrisiNepotrebno     = chkBrisiNepotrebno.IsChecked == true;
-
-        ConfigurationComplete?.Invoke(this, EventArgs.Empty);
-
-        // Otvori Schema Sync wizard sa popunjenim vrijednostima — isti UI i ista logika
         try
         {
-            var syncWin = new SchemaSyncWizardWindow(p.Idprograma, backendType, cs)
+            if (cbProgrami.SelectedItem is not Programi p)
             {
-                Owner = Owner
-            };
-            syncWin.Show();
+                MyMsgBox.Show("MSG_ODABERI_PROGRAM_KONFIG", icon: MessageBoxImage.Warning);
+                return;
+            }
+
+            var cs = GetBackendCs();
+            if (string.IsNullOrWhiteSpace(cs))
+            {
+                MyMsgBox.Show("MSG_ODABERI_BAZU", icon: MessageBoxImage.Warning);
+                return;
+            }
+
+            var backendType = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
+
+            AppState.SelectedProgramId   = p.Idprograma;
+            AppState.SelectedProgramName = p.Nazivprograma ?? "";
+            AppState.BackendDatabasePath = cs;
+            AppState.BackendType         = backendType;
+            AppState.BrisiNepotrebno     = chkBrisiNepotrebno.IsChecked == true;
+
+            ConfigurationComplete?.Invoke(this, EventArgs.Empty);
+
+            // Otvori Schema Sync wizard sa popunjenim vrijednostima — isti UI i ista logika
+            try
+            {
+                var syncWin = new SchemaSyncWizardWindow(p.Idprograma, backendType, cs)
+                {
+                    Owner = Owner
+                };
+                syncWin.Show();
+            }
+            catch (Exception ex)
+            {
+                LogService.Error("Konfiguracija", "Error starting schema sync from configuration", ex);
+                MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
+            }
+
+            // Ako je označen auto-repair, pročitaj firmeadrese i otvori batch prozor
+            if (chkAutoRepairAllDatabases.IsChecked == true)
+            {
+                var entries = await ReadFirmeAdreseAsync(cs, backendType);
+                if (entries.Count > 0)
+                {
+                    try
+                    {
+                        var batchWin = new BatchSchemaSyncWindow(p.Idprograma, entries)
+                        {
+                            Owner = Owner
+                        };
+                        batchWin.Show();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.Error("Konfiguracija", "Error starting batch sync from firmeadrese", ex);
+                        MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
+                    }
+                }
+                else
+                {
+                    var tbl = _foundFirmeAdreseTable ?? "firmeadrese";
+                    MyMsgBox.Show($"No usable entries found in the '{tbl}' table.",
+                        icon: MessageBoxImage.Warning);
+                }
+            }
+
+            Close();
         }
         catch (Exception ex)
         {
-            LogService.Error("Konfiguracija", "Error starting schema sync from configuration", ex);
+            LogService.Error("Konfiguracija", "Unexpected error in configuration", ex);
             MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
         }
-
-        // Ako je označen auto-repair, pročitaj firmeadrese i otvori batch prozor
-        if (chkAutoRepairAllDatabases.IsChecked == true)
-        {
-            var entries = await ReadFirmeAdreseAsync(cs, backendType);
-            if (entries.Count > 0)
-            {
-                try
-                {
-                    var batchWin = new BatchSchemaSyncWindow(p.Idprograma, entries)
-                    {
-                        Owner = Owner
-                    };
-                    batchWin.Show();
-                }
-                catch (Exception ex)
-                {
-                    LogService.Error("Konfiguracija", "Error starting batch sync from firmeadrese", ex);
-                    MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
-                }
-            }
-            else
-            {
-                var tbl = _foundFirmeAdreseTable ?? "firmeadrese";
-                MyMsgBox.Show($"No usable entries found in the '{tbl}' table.",
-                    icon: MessageBoxImage.Warning);
-            }
-        }
-
-        Close();
     }
 
     private void BtnOtkazi_Click(object sender, RoutedEventArgs e)

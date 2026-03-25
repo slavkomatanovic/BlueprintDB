@@ -84,20 +84,28 @@ public partial class BatchSchemaSyncWindow : Window
 
     private async void BtnSyncAll_Click(object sender, RoutedEventArgs e)
     {
-        if (_running) return;
-
-        if (cbProgrami.SelectedValue is not int programId)
+        try
         {
-            MyMsgBox.Show("MSG_ODABERI_PROGRAM_KONFIG", icon: MessageBoxImage.Warning);
-            return;
-        }
-        if (_backends.Count == 0)
-        {
-            MyMsgBox.Show("Dodaj barem jedan backend.", icon: MessageBoxImage.Warning);
-            return;
-        }
+            if (_running) return;
 
-        await RunSyncAsync(programId);
+            if (cbProgrami.SelectedValue is not int programId)
+            {
+                MyMsgBox.Show("MSG_ODABERI_PROGRAM_KONFIG", icon: MessageBoxImage.Warning);
+                return;
+            }
+            if (_backends.Count == 0)
+            {
+                MyMsgBox.Show("Dodaj barem jedan backend.", icon: MessageBoxImage.Warning);
+                return;
+            }
+
+            await RunSyncAsync(programId);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("BatchSync", "Unexpected error", ex);
+            MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
+        }
     }
 
     private async Task RunSyncAsync(int programId)

@@ -25,13 +25,21 @@ public partial class SchemaSyncWizardWindow : Window
     {
         InitializeComponent();
 
-        using var db = new BlueprintDbContext();
-        cbProgram.ItemsSource = db.Programis
-            .Where(p => p.Skriven != true)
-            .OrderBy(p => p.Nazivprograma)
-            .ToList();
-        if (AppState.SelectedProgramId > 0)
-            cbProgram.SelectedValue = AppState.SelectedProgramId;
+        try
+        {
+            using var db = new BlueprintDbContext();
+            cbProgram.ItemsSource = db.Programis
+                .Where(p => p.Skriven != true)
+                .OrderBy(p => p.Nazivprograma)
+                .ToList();
+            if (AppState.SelectedProgramId > 0)
+                cbProgram.SelectedValue = AppState.SelectedProgramId;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("SchemaSyncWizard", "Failed to load programs", ex);
+            MessageBox.Show(ex.Message, "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
 
         cbBackendType.ItemsSource  = Enum.GetNames<BackendType>();
         cbBackendType.SelectedIndex = 0;
@@ -48,12 +56,20 @@ public partial class SchemaSyncWizardWindow : Window
         InitializeComponent();
 
         // Popuni kontrole pa idi direktno na korak 3
-        using var db = new BlueprintDbContext();
-        cbProgram.ItemsSource = db.Programis
-            .Where(p => p.Skriven != true)
-            .OrderBy(p => p.Nazivprograma)
-            .ToList();
-        cbProgram.SelectedValue = programId;
+        try
+        {
+            using var db = new BlueprintDbContext();
+            cbProgram.ItemsSource = db.Programis
+                .Where(p => p.Skriven != true)
+                .OrderBy(p => p.Nazivprograma)
+                .ToList();
+            cbProgram.SelectedValue = programId;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("SchemaSyncWizard", "Failed to load programs", ex);
+            MessageBox.Show(ex.Message, "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
 
         cbBackendType.ItemsSource = Enum.GetNames<BackendType>();
         cbBackendType.SelectedItem = backendType.ToString();
@@ -63,8 +79,16 @@ public partial class SchemaSyncWizardWindow : Window
 
         Loaded += async (_, _) =>
         {
-            ShowStep(3);
-            await RunAnalysisAsync();
+            try
+            {
+                ShowStep(3);
+                await RunAnalysisAsync();
+            }
+            catch (Exception ex)
+            {
+                LogService.Error("SchemaSync", "Unexpected startup error", ex);
+                MessageBox.Show(ex.Message, "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         };
     }
 
@@ -100,33 +124,41 @@ public partial class SchemaSyncWizardWindow : Window
 
     private async void BtnNext_Click(object sender, RoutedEventArgs e)
     {
-        switch (_currentStep)
+        try
         {
-            case 1:
-                if (cbProgram.SelectedValue is not int id)
-                {
-                    MessageBox.Show("Please select a program.", "Validation",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-                _programId = id;
-                ShowStep(2);
-                break;
+            switch (_currentStep)
+            {
+                case 1:
+                    if (cbProgram.SelectedValue is not int id)
+                    {
+                        MessageBox.Show("Please select a program.", "Validation",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    _programId = id;
+                    ShowStep(2);
+                    break;
 
-            case 2:
-                if (string.IsNullOrWhiteSpace(GetConnectionString()))
-                {
-                    MessageBox.Show("Please specify a database path or connection string.", "Validation",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-                ShowStep(3);
-                await RunAnalysisAsync();
-                break;
+                case 2:
+                    if (string.IsNullOrWhiteSpace(GetConnectionString()))
+                    {
+                        MessageBox.Show("Please specify a database path or connection string.", "Validation",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    ShowStep(3);
+                    await RunAnalysisAsync();
+                    break;
 
-            case 3:
-                Close();
-                break;
+                case 3:
+                    Close();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("SchemaSync", "Unexpected error in wizard navigation", ex);
+            MessageBox.Show(ex.Message, "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -174,7 +206,7 @@ public partial class SchemaSyncWizardWindow : Window
         "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
         "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
         "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
-        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;",
         "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
         _                    => ""
     };

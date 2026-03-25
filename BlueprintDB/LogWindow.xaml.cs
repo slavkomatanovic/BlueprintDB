@@ -94,14 +94,33 @@ public partial class LogWindow : Window
 
     private void DgLog_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (dgLog.SelectedItem is not Log row)
+        // Detail panel shows the last selected (or only) row
+        var row = dgLog.SelectedItems.OfType<Log>().LastOrDefault();
+        txtDetalji.Text = row?.Detalji ?? "";
+        txtSqlKod.Text  = row?.Sqlkod  ?? "";
+    }
+
+    private void BtnCopy_Click(object sender, RoutedEventArgs e)
+    {
+        var rows = dgLog.SelectedItems.OfType<Log>().ToList();
+        if (rows.Count == 0) return;
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var row in rows)
         {
-            txtDetalji.Text = "";
-            txtSqlKod.Text  = "";
-            return;
+            sb.AppendLine($"{row.Datumvrijeme:yyyy-MM-dd HH:mm:ss} | {row.Nivo} | {row.Kategorija} | {row.Poruka}");
+            if (!string.IsNullOrWhiteSpace(row.Detalji))
+                sb.AppendLine($"  Details: {row.Detalji}");
+            if (!string.IsNullOrWhiteSpace(row.Sqlkod))
+                sb.AppendLine($"  SQL: {row.Sqlkod}");
+            if (rows.Count > 1)
+                sb.AppendLine();
         }
-        txtDetalji.Text = row.Detalji ?? "";
-        txtSqlKod.Text  = row.Sqlkod  ?? "";
+
+        Clipboard.SetText(sb.ToString());
+        lblStatus.Text = rows.Count == 1
+            ? "Entry copied to clipboard."
+            : $"{rows.Count} entries copied to clipboard.";
     }
 
     private void Filter_Changed(object sender, EventArgs e)

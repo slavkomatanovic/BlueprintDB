@@ -65,41 +65,49 @@ public partial class WizardWindow : Window
 
     private async void BtnNext_Click(object sender, RoutedEventArgs e)
     {
-        switch (_currentStep)
+        try
         {
-            case 1:
-                if (string.IsNullOrWhiteSpace(txtProgramName.Text))
-                {
-                    MessageBox.Show("Program name cannot be empty.", "Validation",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-                ShowStep(2);
-                break;
+            switch (_currentStep)
+            {
+                case 1:
+                    if (string.IsNullOrWhiteSpace(txtProgramName.Text))
+                    {
+                        MessageBox.Show("Program name cannot be empty.", "Validation",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    ShowStep(2);
+                    break;
 
-            case 2:
-                if (string.IsNullOrWhiteSpace(GetConnectionString()))
-                {
-                    MessageBox.Show("Please specify a database path or connection string.", "Validation",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-                var selectedType = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
-                if (!LicenseService.CanUseSchemaImport(selectedType))
-                {
-                    MessageBox.Show(
-                        $"Schema Import with {selectedType} requires Blueprint Pro.\n\nSQLite and Access import are free.\nUse Tools → License to activate Pro.",
-                        "Blueprint Pro Required",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                ShowStep(3);
-                await RunImportAsync();
-                break;
+                case 2:
+                    if (string.IsNullOrWhiteSpace(GetConnectionString()))
+                    {
+                        MessageBox.Show("Please specify a database path or connection string.", "Validation",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    var selectedType = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
+                    if (!LicenseService.CanUseSchemaImport(selectedType))
+                    {
+                        MessageBox.Show(
+                            $"Schema Import with {selectedType} requires Blueprint Pro.\n\nSQLite and Access import are free.\nUse Tools → License to activate Pro.",
+                            "Blueprint Pro Required",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
+                    ShowStep(3);
+                    await RunImportAsync();
+                    break;
 
-            case 3:
-                Close();
-                break;
+                case 3:
+                    Close();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("WizardWindow", "Unexpected error in wizard navigation", ex);
+            MessageBox.Show(ex.Message, "Blueprint", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -147,7 +155,7 @@ public partial class WizardWindow : Window
         "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
         "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
         "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
-        "DB2"                => "Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;",
+        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;",
         "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
         _                    => ""
     };

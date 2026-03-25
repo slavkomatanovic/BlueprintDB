@@ -1,20 +1,19 @@
-using System.Data.Odbc;
+using IBM.Data.Db2;
 
 namespace Blueprint.App.Backend;
 
 /// <summary>
-/// IBM DB2 backend via ODBC.
-/// Requires IBM Data Server Driver (ODBC/CLI) to be installed on the host machine.
-/// Connection string (ODBC DSN):     DSN=mydsn;UID=user;PWD=pass;
-/// Connection string (driver-based): Driver={IBM DB2 ODBC DRIVER};Database=MYDB;Hostname=host;Port=50000;Protocol=TCPIP;Uid=user;Pwd=pass;
+/// IBM DB2 backend via Net.IBM.Data.Db2 managed driver.
+/// No separate ODBC driver installation required — driver is bundled in the NuGet package.
+/// Connection string: Server=host:50000;Database=MYDB;UID=user;PWD=pass;
 /// </summary>
 public sealed class Db2BackendConnector : IBackendConnector
 {
-    private readonly OdbcConnection _conn;
-    private OdbcTransaction? _tx;
+    private readonly DB2Connection _conn;
+    private DB2Transaction? _tx;
 
     public Db2BackendConnector(string connectionString)
-        => _conn = new OdbcConnection(connectionString);
+        => _conn = new DB2Connection(connectionString);
 
     public void Open() => _conn.Open();
 
@@ -34,16 +33,40 @@ public sealed class Db2BackendConnector : IBackendConnector
     public IReadOnlyList<string> GetColumnNames(string tableName)
     {
         using var cmd = _conn.CreateCommand();
-        // ODBC uses positional '?' parameters — name is ignored, only order matters
         cmd.CommandText =
             "SELECT COLNAME FROM SYSCAT.COLUMNS " +
-            "WHERE TABSCHEMA = CURRENT SCHEMA AND TABNAME = ? " +
+            "WHERE TABSCHEMA = CURRENT SCHEMA AND TABNAME = @tabname " +
             "ORDER BY COLNO";
-        cmd.Parameters.AddWithValue("tabname", tableName.ToUpperInvariant());
+        cmd.Parameters.Add(new DB2Parameter("@tabname", tableName));
         using var r = cmd.ExecuteReader();
         var list = new List<string>();
         while (r.Read()) list.Add(r.GetString(0).TrimEnd());
         return list;
+    }
+
+    public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
+    {
+        using var cmd = _conn.CreateCommand();
+        // Use SYSCAT.COLUMNS for DB2 LUW; SYSIBM.SYSCOLUMNS for DB2 z/OS
+        cmd.CommandText =
+            "SELECT COLNAME, TYPENAME FROM SYSCAT.COLUMNS " +
+            "WHERE TABNAME = @tabname AND TABSCHEMA = CURRENT SCHEMA " +
+            "ORDER BY COLNO";
+        cmd.Parameters.Add(new DB2Parameter("@tabname", tableName));
+        try
+        {
+            using var r = cmd.ExecuteReader();
+            var dict = new Dictionary<string, CanonicalType>(StringComparer.OrdinalIgnoreCase);
+            while (r.Read())
+                dict[r.GetString(0)] = TypeMappings.Resolve(BackendType.DB2, r.GetString(1));
+            return dict;
+        }
+        catch
+        {
+            // Fallback: return Unknown for all columns
+            return GetColumnNames(tableName)
+                   .ToDictionary(c => c, _ => CanonicalType.Unknown, StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
@@ -76,22 +99,29 @@ public sealed class Db2BackendConnector : IBackendConnector
                            IEnumerable<IReadOnlyDictionary<string, object?>> rows)
     {
         var colList   = string.Join(", ", columns.Select(c => $"\"{Q(c)}\""));
-        var paramList = string.Join(", ", columns.Select(_ => "?"));
+        var paramList = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
         var sql = $"INSERT INTO \"{Q(tableName)}\" ({colList}) VALUES ({paramList})";
 
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = sql;
-        for (int i = 0; i < columns.Count; i++)
-            cmd.Parameters.AddWithValue($"p{i}", DBNull.Value);
-
         foreach (var row in rows)
         {
+            cmd.Parameters.Clear();
             for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters[i].Value = row[columns[i]] ?? DBNull.Value;
+                cmd.Parameters.Add(new DB2Parameter($"@p{i}", ToDb2Value(row[columns[i]])));
             cmd.ExecuteNonQuery();
         }
     }
+
+    private static object ToDb2Value(object? val) => val switch
+    {
+        null       => DBNull.Value,
+        bool b     => b ? 1 : 0,
+        DateOnly d => d.ToDateTime(TimeOnly.MinValue),
+        Guid g     => g.ToString(),
+        _          => val
+    };
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
@@ -99,16 +129,16 @@ public sealed class Db2BackendConnector : IBackendConnector
         using var existsCmd = _conn.CreateCommand();
         existsCmd.CommandText =
             "SELECT COUNT(*) FROM SYSCAT.TABLES " +
-            "WHERE TABSCHEMA = CURRENT SCHEMA AND TABNAME = ?";
-        existsCmd.Parameters.AddWithValue("tabname", tableName.ToUpperInvariant());
+            "WHERE TABSCHEMA = CURRENT SCHEMA AND TABNAME = @tabname";
+        existsCmd.Parameters.Add(new DB2Parameter("@tabname", tableName));
         var count = Convert.ToInt32(existsCmd.ExecuteScalar());
         if (count > 0) return;
 
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
-            var type = string.IsNullOrEmpty(c.SqlType) ? "VARCHAR(255)" : c.SqlType;
-            var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
+            var type = TypeMappings.ResolveToDdl(BackendType.DB2, c.SqlType, c.MaxLength);
+            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)
@@ -121,7 +151,7 @@ public sealed class Db2BackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var type = string.IsNullOrEmpty(column.SqlType) ? "VARCHAR(255)" : column.SqlType;
+        var type = TypeMappings.ResolveToDdl(BackendType.DB2, column.SqlType, column.MaxLength);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             $"ALTER TABLE \"{Q(tableName)}\" ADD COLUMN \"{Q(column.Name)}\" {type}";
@@ -182,7 +212,7 @@ public sealed class Db2BackendConnector : IBackendConnector
         cmd.ExecuteNonQuery();
     }
 
-    public void BeginTransaction() => _tx = _conn.BeginTransaction();
+    public void BeginTransaction() => _tx = (DB2Transaction)_conn.BeginTransaction();
     public void Commit()   { _tx?.Commit();   _tx = null; }
     public void Rollback() { _tx?.Rollback(); _tx = null; }
     public void Dispose()  { _tx?.Dispose();  _conn.Dispose(); }
