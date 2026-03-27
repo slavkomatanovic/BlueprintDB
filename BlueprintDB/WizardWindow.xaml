@@ -84,16 +84,41 @@
                 <StackPanel x:Name="page1">
                     <TextBlock Text="Name your program" FontSize="20" FontWeight="SemiBold"
                                Foreground="#111827" Margin="0,0,0,6"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="#6B7280" FontSize="12" Margin="0,0,0,24"
-                               Text="In Blueprint, each database is called a 'Program'. Give it a name that identifies the application whose database you are documenting."/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#6B7280" FontSize="12" Margin="0,0,0,20"
+                               Text="In Blueprint, each database is called a 'Program'. Give it a name, or select an existing program to reimport its schema."/>
 
-                    <TextBlock Text="Program name" FontWeight="SemiBold" FontSize="12"
+                    <!-- New program -->
+                    <TextBlock Text="New program name" FontWeight="SemiBold" FontSize="12"
                                Foreground="#374151" Margin="0,0,0,4"/>
-                    <TextBox x:Name="txtProgramName" Padding="7,5" FontSize="13" BorderBrush="#D1D5DB"/>
+                    <TextBox x:Name="txtProgramName" Padding="7,5" FontSize="13" BorderBrush="#D1D5DB"
+                             TextChanged="TxtProgramName_TextChanged"/>
 
                     <TextBlock Text="Version  (optional)" FontWeight="SemiBold" FontSize="12"
-                               Foreground="#374151" Margin="0,16,0,4"/>
+                               Foreground="#374151" Margin="0,12,0,4"/>
                     <TextBox x:Name="txtVersion" Padding="7,5" FontSize="13" BorderBrush="#D1D5DB"/>
+
+                    <!-- Divider -->
+                    <Grid Margin="0,18,0,14">
+                        <Separator/>
+                        <TextBlock Text=" or reimport an existing program " Background="White"
+                                   Foreground="#9CA3AF" FontSize="11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,0"/>
+                    </Grid>
+
+                    <!-- Existing program -->
+                    <TextBlock Text="Existing program" FontWeight="SemiBold" FontSize="12"
+                               Foreground="#374151" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="cbExistingProgram"
+                              DisplayMemberPath="Nazivprograma"
+                              SelectedValuePath="Idprograma"
+                              Padding="6,4" FontSize="13"
+                              SelectionChanged="CbExistingProgram_SelectionChanged"/>
+                    <Border x:Name="pnlReimportWarning" Visibility="Collapsed"
+                            Background="#FEF9C3" BorderBrush="#FDE047" BorderThickness="1"
+                            CornerRadius="3" Padding="10,7" Margin="0,8,0,0">
+                        <TextBlock FontSize="11" Foreground="#713F12" TextWrapping="Wrap"
+                                   Text="⚠ All existing tables and columns for this program will be deleted and reimported from the source database."/>
+                    </Border>
                 </StackPanel>
 
                 <!-- Page 2: Select backend -->

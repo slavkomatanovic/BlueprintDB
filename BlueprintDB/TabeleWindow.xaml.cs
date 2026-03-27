@@ -36,6 +36,8 @@ public partial class TabeleWindow : Window
                 .Where(p => p.Skriven != true)
                 .OrderBy(p => p.Nazivprograma)
                 .ToList();
+            if (AppState.SelectedProgramId > 0)
+                cbProgrami.SelectedValue = AppState.SelectedProgramId;
         }
         catch (Exception ex)
         {
@@ -68,6 +70,7 @@ public partial class TabeleWindow : Window
         if (cbProgrami.SelectedValue is int id)
         {
             _currentProgramId = id;
+            AppState.SaveSelectedProgram(id);
             LoadData();
         }
     }

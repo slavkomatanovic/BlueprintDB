@@ -46,6 +46,80 @@ public sealed class FirebirdBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyList<ColumnSchema> GetColumnSchema(string tableName)
+    {
+        // Primary key columns
+        var pkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var pkCmd = _conn.CreateCommand())
+        {
+            pkCmd.CommandText =
+                "SELECT TRIM(iseg.RDB$FIELD_NAME) " +
+                "FROM RDB$RELATION_CONSTRAINTS rc " +
+                "JOIN RDB$INDEX_SEGMENTS iseg ON rc.RDB$INDEX_NAME = iseg.RDB$INDEX_NAME " +
+                "WHERE rc.RDB$CONSTRAINT_TYPE = 'PRIMARY KEY' " +
+                "  AND TRIM(rc.RDB$RELATION_NAME) = @t";
+            pkCmd.Parameters.AddWithValue("@t", FbId(tableName));
+            using var pkr = pkCmd.ExecuteReader();
+            while (pkr.Read()) pkNames.Add(pkr.GetString(0).TrimEnd());
+        }
+
+        using var cmd = _conn.CreateCommand();
+        // RDB$IDENTITY_TYPE: 0=ALWAYS, 1=BY DEFAULT — both are auto-increment (Firebird 3+)
+        // RDB$FIELD_LENGTH is in bytes; for VARCHAR it's char length if RDB$CHARACTER_LENGTH is set
+        cmd.CommandText =
+            "SELECT TRIM(rf.RDB$FIELD_NAME), f.RDB$FIELD_TYPE, f.RDB$FIELD_SUB_TYPE, " +
+            "       COALESCE(f.RDB$CHARACTER_LENGTH, f.RDB$FIELD_LENGTH), " +
+            "       rf.RDB$NULL_FLAG, rf.RDB$IDENTITY_TYPE " +
+            "FROM RDB$RELATION_FIELDS rf " +
+            "JOIN RDB$FIELDS f ON rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME " +
+            "WHERE UPPER(rf.RDB$RELATION_NAME) = UPPER(@t) " +
+            "ORDER BY rf.RDB$FIELD_POSITION";
+        cmd.Parameters.AddWithValue("@t", FbId(tableName));
+        using var r = cmd.ExecuteReader();
+        var list = new List<ColumnSchema>();
+        while (r.Read())
+        {
+            var name       = r.GetString(0).TrimEnd();
+            var typeCode   = r.GetInt32(1);
+            var subType    = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var rawLen     = r.IsDBNull(3) ? 0 : r.GetInt32(3);
+            var maxLen     = rawLen > 0 && rawLen <= 8000 ? rawLen : 0;
+            var notNull    = !r.IsDBNull(4) && r.GetInt32(4) == 1;
+            var isIdentity = !r.IsDBNull(5); // RDB$IDENTITY_TYPE IS NOT NULL
+            var isPk       = pkNames.Contains(name);
+
+            string sqlType;
+            if (isIdentity)
+            {
+                sqlType = "AutoNumber";
+            }
+            else
+            {
+                // Firebird field type codes: 7=SMALLINT,8=INTEGER,16=BIGINT,10=FLOAT,
+                //   27=DOUBLE,37=VARCHAR,14=CHAR,261=BLOB,12=DATE,13=TIME,35=TIMESTAMP,23=BOOLEAN
+                var canonical = typeCode switch
+                {
+                    7   => CanonicalType.Int32,
+                    8   => CanonicalType.Int32,
+                    16  => CanonicalType.Int64,
+                    10  => CanonicalType.Double,
+                    27  => CanonicalType.Double,
+                    37  => CanonicalType.Text,
+                    14  => CanonicalType.Text,
+                    261 => subType == 1 ? CanonicalType.Text : CanonicalType.Bytes,
+                    12  => CanonicalType.Date,
+                    13  => CanonicalType.Text,
+                    35  => CanonicalType.DateTime,
+                    23  => CanonicalType.Boolean,
+                    _   => CanonicalType.Unknown
+                };
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
+            list.Add(new ColumnSchema(name, sqlType, notNull, isPk, maxLen));
+        }
+        return list;
+    }
+
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
     {
         using var cmd = _conn.CreateCommand();

@@ -79,8 +79,18 @@ public sealed class AccessBackendConnector : IBackendConnector
                 var ml = Convert.ToInt32(row["CHARACTER_MAXIMUM_LENGTH"]);
                 if (ml > 0 && ml <= 8000) maxLen = ml;
             }
-            var canonical = MapOleDbType(typeCode);
-            var sqlType   = TypeMappings.GetDdlType(BackendType.Access, canonical, maxLen);
+
+            // PK + Integer type = AutoNumber in Access (almost without exception)
+            string sqlType;
+            if (isPk && typeCode == 3)
+            {
+                sqlType = "AutoNumber";
+            }
+            else
+            {
+                var canonical = MapOleDbType(typeCode);
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
             list.Add(new ColumnSchema(name, sqlType, !nullable, isPk, maxLen));
         }
         return list;
@@ -112,7 +122,8 @@ public sealed class AccessBackendConnector : IBackendConnector
         128 or 204 or 205               => CanonicalType.Bytes,     // Binary, VarBinary, LongVarBinary
         201 or 203                      => CanonicalType.Text,      // LongVarChar / LongVarWChar (Memo)
         130 or 200 or 202               => CanonicalType.Text,      // WChar, VarChar, VarWChar
-        _                               => CanonicalType.Text,      // default / GUID / unknown
+        72                              => CanonicalType.Guid,      // adGUID
+        _                               => CanonicalType.Text,      // default / unknown
     };
 
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(

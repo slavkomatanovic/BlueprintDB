@@ -54,6 +54,57 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyList<ColumnSchema> GetColumnSchema(string tableName)
+    {
+        // Primary key columns
+        var pkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var pkCmd = _conn.CreateCommand())
+        {
+            pkCmd.CommandText =
+                "SELECT ku.COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku " +
+                "JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc " +
+                "  ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME " +
+                "  AND tc.TABLE_SCHEMA = ku.TABLE_SCHEMA AND tc.TABLE_NAME = ku.TABLE_NAME " +
+                "WHERE tc.TABLE_SCHEMA = @s AND tc.TABLE_NAME = @t AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'";
+            pkCmd.Parameters.AddWithValue("@s", _schema);
+            pkCmd.Parameters.AddWithValue("@t", tableName);
+            using var pkr = pkCmd.ExecuteReader();
+            while (pkr.Read()) pkNames.Add(pkr.GetString(0));
+        }
+
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT c.COLUMN_NAME, c.DATA_TYPE, c.CHARACTER_MAXIMUM_LENGTH, c.IS_NULLABLE, " +
+            "       COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA+'.'+c.TABLE_NAME), c.COLUMN_NAME, 'IsIdentity') AS IS_IDENTITY " +
+            "FROM INFORMATION_SCHEMA.COLUMNS c " +
+            "WHERE c.TABLE_SCHEMA = @s AND c.TABLE_NAME = @t ORDER BY c.ORDINAL_POSITION";
+        cmd.Parameters.AddWithValue("@s", _schema);
+        cmd.Parameters.AddWithValue("@t", tableName);
+        using var r = cmd.ExecuteReader();
+        var list = new List<ColumnSchema>();
+        while (r.Read())
+        {
+            var name       = r.GetString(0);
+            var dataType   = r.GetString(1);
+            var rawMax     = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var maxLen     = rawMax > 0 && rawMax <= 8000 ? rawMax : 0;
+            var notNull    = r.GetString(3) == "NO";
+            var isIdentity = !r.IsDBNull(4) && r.GetInt32(4) == 1;
+            var isPk       = pkNames.Contains(name);
+
+            string sqlType;
+            if (isIdentity)
+                sqlType = "AutoNumber";
+            else
+            {
+                var canonical = TypeMappings.Resolve(BackendType.SqlServer, dataType);
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
+            list.Add(new ColumnSchema(name, sqlType, notNull, isPk, maxLen));
+        }
+        return list;
+    }
+
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
     {
         using var cmd = _conn.CreateCommand();

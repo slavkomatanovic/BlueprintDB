@@ -44,6 +44,60 @@ public sealed class Db2BackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyList<ColumnSchema> GetColumnSchema(string tableName)
+    {
+        // Primary key columns
+        var pkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var pkCmd = _conn.CreateCommand())
+        {
+            pkCmd.CommandText =
+                "SELECT kcu.COLNAME FROM SYSCAT.KEYCOLUSE kcu " +
+                "JOIN SYSCAT.TABCONST tc ON kcu.CONSTNAME = tc.CONSTNAME " +
+                "  AND kcu.TABSCHEMA = tc.TABSCHEMA AND kcu.TABNAME = tc.TABNAME " +
+                "WHERE tc.TABSCHEMA = CURRENT SCHEMA AND tc.TABNAME = @tabname AND tc.TYPE = 'P'";
+            pkCmd.Parameters.Add(new DB2Parameter("@tabname", tableName));
+            try
+            {
+                using var pkr = pkCmd.ExecuteReader();
+                while (pkr.Read()) pkNames.Add(pkr.GetString(0).TrimEnd());
+            }
+            catch { /* ignore if catalog views unavailable */ }
+        }
+
+        using var cmd = _conn.CreateCommand();
+        // IDENTITY: 'Y' = always, 'D' = by default — both are auto-increment
+        cmd.CommandText =
+            "SELECT COLNAME, TYPENAME, LENGTH, NULLS, IDENTITY " +
+            "FROM SYSCAT.COLUMNS " +
+            "WHERE TABNAME = @tabname AND TABSCHEMA = CURRENT SCHEMA " +
+            "ORDER BY COLNO";
+        cmd.Parameters.Add(new DB2Parameter("@tabname", tableName));
+        using var r = cmd.ExecuteReader();
+        var list = new List<ColumnSchema>();
+        while (r.Read())
+        {
+            var name       = r.GetString(0).TrimEnd();
+            var typeName   = r.GetString(1).TrimEnd();
+            var rawLen     = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var maxLen     = rawLen > 0 && rawLen <= 8000 ? rawLen : 0;
+            var notNull    = !r.IsDBNull(3) && r.GetString(3).Trim() == "N";
+            var identChar  = r.IsDBNull(4) ? ' ' : r.GetString(4).Trim().FirstOrDefault();
+            var isIdentity = identChar == 'Y' || identChar == 'D';
+            var isPk       = pkNames.Contains(name);
+
+            string sqlType;
+            if (isIdentity)
+                sqlType = "AutoNumber";
+            else
+            {
+                var canonical = TypeMappings.Resolve(BackendType.DB2, typeName);
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
+            list.Add(new ColumnSchema(name, sqlType, notNull, isPk, maxLen));
+        }
+        return list;
+    }
+
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
     {
         using var cmd = _conn.CreateCommand();

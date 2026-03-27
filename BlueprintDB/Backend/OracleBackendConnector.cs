@@ -41,6 +41,66 @@ public sealed class OracleBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyList<ColumnSchema> GetColumnSchema(string tableName)
+    {
+        // Primary key columns
+        var pkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var pkCmd = _conn.CreateCommand())
+        {
+            pkCmd.CommandText =
+                "SELECT acc.COLUMN_NAME FROM USER_CONSTRAINTS ac " +
+                "JOIN USER_CONS_COLUMNS acc ON ac.CONSTRAINT_NAME = acc.CONSTRAINT_NAME " +
+                "WHERE ac.TABLE_NAME = :t AND ac.CONSTRAINT_TYPE = 'P'";
+            pkCmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
+            using var pkr = pkCmd.ExecuteReader();
+            while (pkr.Read()) pkNames.Add(pkr.GetString(0));
+        }
+
+        // Identity columns (Oracle 12c+)
+        var identityCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var idCmd = _conn.CreateCommand())
+        {
+            idCmd.CommandText =
+                "SELECT COLUMN_NAME FROM USER_TAB_IDENTITY_COLS WHERE TABLE_NAME = :t";
+            idCmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
+            try
+            {
+                using var idr = idCmd.ExecuteReader();
+                while (idr.Read()) identityCols.Add(idr.GetString(0));
+            }
+            catch { /* USER_TAB_IDENTITY_COLS not available on older Oracle versions */ }
+        }
+
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT COLUMN_NAME, DATA_TYPE, CHAR_COL_DECL_LENGTH, NULLABLE " +
+            "FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :t ORDER BY COLUMN_ID";
+        cmd.Parameters.Add(new OracleParameter("t", tableName.ToUpperInvariant()));
+        using var r = cmd.ExecuteReader();
+        var list = new List<ColumnSchema>();
+        while (r.Read())
+        {
+            var name     = r.GetString(0);
+            var dataType = r.GetString(1);
+            var rawMax   = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var maxLen   = rawMax > 0 && rawMax <= 8000 ? rawMax : 0;
+            var notNull  = r.GetString(3) == "N";
+            var isPk     = pkNames.Contains(name);
+            var isIdent  = identityCols.Contains(name);
+
+            string sqlType;
+            if (isIdent)
+                sqlType = "AutoNumber";
+            else
+            {
+                var canonical = TypeMappings.Resolve(BackendType.Oracle, dataType);
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
+            list.Add(new ColumnSchema(name, sqlType, notNull, isPk, maxLen));
+        }
+        return list;
+    }
+
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
     {
         using var cmd = _conn.CreateCommand();

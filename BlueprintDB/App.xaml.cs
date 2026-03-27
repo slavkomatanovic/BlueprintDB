@@ -45,6 +45,7 @@ public partial class App : Application
             DbSeeder.Seed();
             LanguageService.Initialize();
             LicenseService.Initialize();
+            AppState.LoadSelectedProgram();
         }
         catch (Exception ex)
         {

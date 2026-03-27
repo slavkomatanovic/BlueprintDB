@@ -39,12 +39,13 @@ public sealed class DatabaseTransferService
                     continue;
                 }
 
-                // Get canonical types for source columns
+                // Get canonical types for source and target columns
                 var sourceTypes = source.GetColumnTypes(table);
+                var targetTypes = target.GetColumnTypes(table);
 
                 // Read rows and normalize each value to canonical C# type
                 var rows = source.ReadAll(table, common)
-                                 .Select(r => CanonicalizeRow(r, common, sourceTypes))
+                                 .Select(r => CanonicalizeRow(r, common, sourceTypes, targetTypes))
                                  .ToList();
 
                 int rowTotal = rows.Count;
@@ -173,18 +174,32 @@ public sealed class DatabaseTransferService
 
     /// <summary>
     /// Converts each value in a row to its canonical C# type based on the source column schema.
+    /// When source and target column types differ (e.g. source INTEGER, target BOOLEAN),
+    /// applies a second-pass coercion so the value fits the target's expected representation.
+    /// This handles legacy data where -1 means True (Access/VBA convention) but the target
+    /// column is BOOLEAN — SQL_BIT only accepts 0/1, so -1 must be normalised to true (1).
     /// </summary>
     private static IReadOnlyDictionary<string, object?> CanonicalizeRow(
         IReadOnlyDictionary<string, object?> row,
         IReadOnlyList<string> columns,
-        IReadOnlyDictionary<string, CanonicalType> sourceTypes)
+        IReadOnlyDictionary<string, CanonicalType> sourceTypes,
+        IReadOnlyDictionary<string, CanonicalType> targetTypes)
     {
         var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (var col in columns)
         {
-            var val  = row.TryGetValue(col, out var v) ? v : null;
-            var type = sourceTypes.TryGetValue(col, out var t) ? t : CanonicalType.Unknown;
-            result[col] = TypeMappings.ToCanonicalValue(val, type);
+            var val        = row.TryGetValue(col, out var v) ? v : null;
+            var srcType    = sourceTypes.TryGetValue(col, out var s) ? s : CanonicalType.Unknown;
+            var canonical  = TypeMappings.ToCanonicalValue(val, srcType);
+
+            // Cross-type coercion: if target expects Boolean but source delivered a non-bool
+            // (e.g. Int64 -1 from an INTEGER column), normalise to bool so the target
+            // receives 0/1 instead of a raw integer that may be misread by ODBC drivers.
+            var tgtType = targetTypes.TryGetValue(col, out var t) ? t : CanonicalType.Unknown;
+            if (tgtType == CanonicalType.Boolean && canonical is not bool)
+                canonical = TypeMappings.ToCanonicalValue(canonical, CanonicalType.Boolean);
+
+            result[col] = canonical;
         }
         return result;
     }

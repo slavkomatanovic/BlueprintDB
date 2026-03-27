@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Controls;
 using Blueprint.App.Backend;
 using Blueprint.App.Models;
 using Microsoft.Win32;
@@ -44,6 +45,12 @@ public partial class BatchSchemaSyncWindow : Window
         cbProgrami.SelectedValue = programId;
         foreach (var e in entries)
             _backends.Add(e);
+    }
+
+    private void CbProgrami_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (cbProgrami.SelectedValue is int id)
+            AppState.SaveSelectedProgram(id);
     }
 
     // ── Backend list ─────────────────────────────────────────────────────────

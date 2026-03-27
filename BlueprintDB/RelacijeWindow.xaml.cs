@@ -96,6 +96,7 @@ public partial class RelacijeWindow : Window
         if (cbProgrami.SelectedValue is int id)
         {
             _programId = id;
+            AppState.SaveSelectedProgram(id);
             LoadTabele();
             LoadGrid();
             ClearForm();

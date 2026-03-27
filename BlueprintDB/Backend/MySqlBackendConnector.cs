@@ -36,6 +36,42 @@ public sealed class MySqlBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyList<ColumnSchema> GetColumnSchema(string tableName)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, " +
+            "       EXTRA, COLUMN_KEY " +
+            "FROM information_schema.COLUMNS " +
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @t ORDER BY ORDINAL_POSITION";
+        cmd.Parameters.AddWithValue("@t", tableName);
+        using var r = cmd.ExecuteReader();
+        var list = new List<ColumnSchema>();
+        while (r.Read())
+        {
+            var name       = r.GetString(0);
+            var dataType   = r.GetString(1);
+            var rawMax     = r.IsDBNull(2) ? 0L : r.GetInt64(2);
+            var maxLen     = rawMax > 0 && rawMax <= 8000 ? (int)rawMax : 0;
+            var notNull    = r.GetString(3) == "NO";
+            var extra      = r.IsDBNull(4) ? "" : r.GetString(4);
+            var colKey     = r.IsDBNull(5) ? "" : r.GetString(5);
+            var isAutoInc  = extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase);
+            var isPk       = colKey.Equals("PRI", StringComparison.OrdinalIgnoreCase);
+
+            string sqlType;
+            if (isAutoInc)
+                sqlType = "AutoNumber";
+            else
+            {
+                var canonical = TypeMappings.Resolve(BackendType.MySQL, dataType);
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
+            list.Add(new ColumnSchema(name, sqlType, notNull, isPk, maxLen));
+        }
+        return list;
+    }
+
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
     {
         using var cmd = _conn.CreateCommand();
@@ -97,11 +133,16 @@ public sealed class MySqlBackendConnector : IBackendConnector
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
     {
-        var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"`{Q(c.Name)}`").ToList();
+        // MySQL: AUTO_INCREMENT columns must be part of a key.
+        // Force AutoNumber columns into pkCols even if PrimaryKey flag is not set in metadata.
+        var pkCols = columns
+            .Where(c => c.PrimaryKey || TypeMappings.IsAutoNumberType(c.SqlType))
+            .Select(c => $"`{Q(c.Name)}`")
+            .ToList();
         var colDefs = columns.Select(c =>
         {
             var type = TypeMappings.ResolveToDdl(BackendType.MySQL, c.SqlType, c.MaxLength);
-            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
+            var nn   = (c.NotNull || c.PrimaryKey || TypeMappings.IsAutoNumberType(c.SqlType)) ? " NOT NULL" : "";
             return $"  `{Q(c.Name)}` {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)

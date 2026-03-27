@@ -78,6 +78,59 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
         cmd.ExecuteNonQuery();
     }
 
+    public IReadOnlyList<ColumnSchema> GetColumnSchema(string tableName)
+    {
+        // Primary key columns
+        var pkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var pkCmd = _conn.CreateCommand())
+        {
+            pkCmd.CommandText =
+                "SELECT kcu.column_name FROM information_schema.key_column_usage kcu " +
+                "JOIN information_schema.table_constraints tc " +
+                "  ON tc.constraint_name = kcu.constraint_name " +
+                "  AND tc.table_schema = kcu.table_schema AND tc.table_name = kcu.table_name " +
+                "WHERE tc.table_schema = @s AND tc.table_name = @t AND tc.constraint_type = 'PRIMARY KEY'";
+            pkCmd.Parameters.AddWithValue("@s", _schema);
+            pkCmd.Parameters.AddWithValue("@t", tableName);
+            using var pkr = pkCmd.ExecuteReader();
+            while (pkr.Read()) pkNames.Add(pkr.GetString(0));
+        }
+
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT column_name, data_type, character_maximum_length, is_nullable, " +
+            "       is_identity, column_default " +
+            "FROM information_schema.columns " +
+            "WHERE table_schema = @s AND table_name = @t ORDER BY ordinal_position";
+        cmd.Parameters.AddWithValue("@s", _schema);
+        cmd.Parameters.AddWithValue("@t", tableName);
+        using var r = cmd.ExecuteReader();
+        var list = new List<ColumnSchema>();
+        while (r.Read())
+        {
+            var name       = r.GetString(0);
+            var dataType   = r.GetString(1);
+            var rawMax     = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var maxLen     = rawMax > 0 && rawMax <= 8000 ? rawMax : 0;
+            var notNull    = r.GetString(3) == "NO";
+            var isIdentity = !r.IsDBNull(4) && r.GetString(4) == "YES";
+            var colDefault = r.IsDBNull(5) ? null : r.GetString(5);
+            var isSerial   = colDefault != null && colDefault.StartsWith("nextval(", StringComparison.OrdinalIgnoreCase);
+            var isPk       = pkNames.Contains(name);
+
+            string sqlType;
+            if (isIdentity || isSerial)
+                sqlType = "AutoNumber";
+            else
+            {
+                var canonical = TypeMappings.Resolve(BackendType.PostgreSQL, dataType);
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
+            list.Add(new ColumnSchema(name, sqlType, notNull, isPk, maxLen));
+        }
+        return list;
+    }
+
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
     {
         using var cmd = _conn.CreateCommand();

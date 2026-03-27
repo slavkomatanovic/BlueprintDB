@@ -32,15 +32,28 @@ public sealed class SqliteBackendConnector : IBackendConnector
         var list = new List<ColumnSchema>();
         while (r.Read())
         {
-            var rawType = r.GetString(2);
-            var m       = Regex.Match(rawType, @"\((\d+)\)");
-            int maxLen  = m.Success ? int.Parse(m.Groups[1].Value) : 0;
-            var baseType = m.Success ? rawType[..rawType.IndexOf('(')] : rawType;
+            var rawType    = r.GetString(2);
+            var m          = Regex.Match(rawType, @"\((\d+)\)");
+            int maxLen     = m.Success ? int.Parse(m.Groups[1].Value) : 0;
+            var baseType   = (m.Success ? rawType[..rawType.IndexOf('(')] : rawType).Trim().ToUpperInvariant();
+            var isPk       = r.GetInt32(5) > 0;
+
+            // SQLite INTEGER PRIMARY KEY = rowid alias = auto-increment
+            string sqlType;
+            if (isPk && baseType == "INTEGER")
+            {
+                sqlType = "AutoNumber";
+            }
+            else
+            {
+                var canonical = TypeMappings.Resolve(BackendType.SQLite, baseType);
+                sqlType = TypeMappings.CanonicalToAdo(canonical, maxLen);
+            }
             list.Add(new ColumnSchema(
                 Name:       r.GetString(1),
-                SqlType:    baseType.Trim().ToUpperInvariant(),
+                SqlType:    sqlType,
                 NotNull:    r.GetInt32(3) == 1,
-                PrimaryKey: r.GetInt32(5) > 0,
+                PrimaryKey: isPk,
                 MaxLength:  maxLen));
         }
         return list;
@@ -59,7 +72,7 @@ public sealed class SqliteBackendConnector : IBackendConnector
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
         => GetColumnSchema(tableName).ToDictionary(
             c => c.Name,
-            c => TypeMappings.Resolve(BackendType.SQLite, c.SqlType),
+            c => TypeMappings.ResolveFromAny(c.SqlType),
             StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlyList<IReadOnlyDictionary<string, object?>> ReadAll(
