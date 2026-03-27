@@ -164,10 +164,13 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
-            var canonical = TypeMappings.Resolve(BackendType.PostgreSQL, c.SqlType);
-            var type = canonical != CanonicalType.Unknown
-                ? TypeMappings.GetDdlType(BackendType.PostgreSQL, canonical, c.MaxLength)
-                : MapToPgType(c);  // keep MapToPgType as fallback for unknown types
+            // ResolveToDdl: tries Access/ADO names first, handles AutoNumber → SERIAL
+            var type = TypeMappings.ResolveToDdl(BackendType.PostgreSQL, c.SqlType, c.MaxLength);
+            // MapToPgType as last resort for truly unresolvable types (returns LONGTEXT→TEXT fallback)
+            if (type == "TEXT" && !string.IsNullOrEmpty(c.SqlType) &&
+                TypeMappings.ResolveFromAny(c.SqlType) == CanonicalType.Unknown &&
+                !TypeMappings.IsAutoNumberType(c.SqlType))
+                type = MapToPgType(c);
             var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
@@ -183,10 +186,11 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var canonical = TypeMappings.Resolve(BackendType.PostgreSQL, column.SqlType);
-        var type = canonical != CanonicalType.Unknown
-            ? TypeMappings.GetDdlType(BackendType.PostgreSQL, canonical, column.MaxLength)
-            : MapToPgType(column);
+        var type = TypeMappings.ResolveToDdl(BackendType.PostgreSQL, column.SqlType, column.MaxLength);
+        if (type == "TEXT" && !string.IsNullOrEmpty(column.SqlType) &&
+            TypeMappings.ResolveFromAny(column.SqlType) == CanonicalType.Unknown &&
+            !TypeMappings.IsAutoNumberType(column.SqlType))
+            type = MapToPgType(column);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText =
             $"ALTER TABLE \"{Q(_schema)}\".\"{Q(tableName)}\" " +

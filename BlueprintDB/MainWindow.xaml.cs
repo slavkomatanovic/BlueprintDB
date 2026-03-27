@@ -245,6 +245,12 @@ public partial class MainWindow : Window
         win.Closed += (_, _) => Activate();
         win.Show();
     }
+    private void MenuMatrixImport_Click(object sender, RoutedEventArgs e)
+    {
+        var win = new MatrixImportWindow { Owner = this };
+        win.Closed += (_, _) => Activate();
+        win.Show();
+    }
     private void MenuTransfer_Click(object sender, RoutedEventArgs e)          => new TransferWindow { Owner = this }.Show();
     private void MenuKonfiguracija_Click(object sender, RoutedEventArgs e)     => OpenSetup();
     private void MenuKraj_Click(object sender, RoutedEventArgs e)              => Application.Current.Shutdown();

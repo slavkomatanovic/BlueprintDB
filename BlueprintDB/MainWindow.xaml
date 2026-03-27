@@ -98,6 +98,12 @@
                                    Foreground="#7C3AED"/>
                     </MenuItem.Icon>
                 </MenuItem>
+                <MenuItem Header="Matrix Import…" Tag="MENU_MATRIX_IMPORT" Click="MenuMatrixImport_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xECC4;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0F766E"/>
+                    </MenuItem.Icon>
+                </MenuItem>
                 <Separator/>
                 <MenuItem Header="Data Migration" Tag="MENU_TRANSFER" Click="MenuTransfer_Click">
                     <MenuItem.Icon>

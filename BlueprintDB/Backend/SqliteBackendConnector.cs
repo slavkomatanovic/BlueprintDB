@@ -124,10 +124,8 @@ public sealed class SqliteBackendConnector : IBackendConnector
         var pkCols  = columns.Where(c => c.PrimaryKey).Select(c => $"\"{Q(c.Name)}\"").ToList();
         var colDefs = columns.Select(c =>
         {
-            var canonical = TypeMappings.Resolve(BackendType.SQLite, c.SqlType);
-            var type = canonical != CanonicalType.Unknown
-                ? TypeMappings.GetDdlType(BackendType.SQLite, canonical, c.MaxLength)
-                : (string.IsNullOrEmpty(c.SqlType) ? "TEXT" : c.SqlType);
+            // ResolveToDdl: tries Access/ADO names first, handles AutoNumber → INTEGER
+            var type = TypeMappings.ResolveToDdl(BackendType.SQLite, c.SqlType, c.MaxLength);
             var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
@@ -141,7 +139,7 @@ public sealed class SqliteBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var type = string.IsNullOrEmpty(column.SqlType) ? "TEXT" : column.SqlType;
+        var type = TypeMappings.ResolveToDdl(BackendType.SQLite, column.SqlType, column.MaxLength);
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = $"ALTER TABLE \"{Q(tableName)}\" ADD COLUMN \"{Q(column.Name)}\" {type}";
         cmd.ExecuteNonQuery();

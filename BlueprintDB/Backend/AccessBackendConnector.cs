@@ -48,6 +48,44 @@ public sealed class AccessBackendConnector : IBackendConnector
         return list;
     }
 
+    public IReadOnlyList<ColumnSchema> GetColumnSchema(string tableName)
+    {
+        // Prikupi PK kolone
+        var pkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var pkSchema = _conn.GetOleDbSchemaTable(
+                OleDbSchemaGuid.Primary_Keys, new object?[] { null, null, tableName });
+            if (pkSchema != null)
+                foreach (DataRow row in pkSchema.Rows)
+                    pkNames.Add(row["COLUMN_NAME"]?.ToString() ?? "");
+        }
+        catch { /* ignorisati ako PK schema nije dostupna */ }
+
+        var schema = _conn.GetOleDbSchemaTable(
+            OleDbSchemaGuid.Columns, new object?[] { null, null, tableName, null });
+        var list = new List<ColumnSchema>();
+        if (schema == null) return list;
+
+        foreach (DataRow row in schema.Rows)
+        {
+            var name     = row["COLUMN_NAME"]?.ToString() ?? "";
+            var typeCode = row["DATA_TYPE"] is short s ? (int)s : row["DATA_TYPE"] is int n ? n : 0;
+            var nullable = row["IS_NULLABLE"] is bool b ? b : true;
+            var isPk     = pkNames.Contains(name);
+            var maxLen   = 0;
+            if (row["CHARACTER_MAXIMUM_LENGTH"] != DBNull.Value)
+            {
+                var ml = Convert.ToInt32(row["CHARACTER_MAXIMUM_LENGTH"]);
+                if (ml > 0 && ml <= 8000) maxLen = ml;
+            }
+            var canonical = MapOleDbType(typeCode);
+            var sqlType   = TypeMappings.GetDdlType(BackendType.Access, canonical, maxLen);
+            list.Add(new ColumnSchema(name, sqlType, !nullable, isPk, maxLen));
+        }
+        return list;
+    }
+
     public IReadOnlyDictionary<string, CanonicalType> GetColumnTypes(string tableName)
     {
         var schema = _conn.GetOleDbSchemaTable(
@@ -126,10 +164,7 @@ public sealed class AccessBackendConnector : IBackendConnector
         // Access DDL: [bracket] quoting, no IF NOT EXISTS, single-column PK inline
         var colDefs = columns.Select(c =>
         {
-            var canonical = TypeMappings.Resolve(BackendType.Access, c.SqlType);
-            var type = canonical != CanonicalType.Unknown
-                ? TypeMappings.GetDdlType(BackendType.Access, canonical, c.MaxLength)
-                : NormalizeAccessType(c.SqlType);  // keep as fallback
+            var type = ResolveAccessDdl(c.SqlType, c.MaxLength);
             var pk   = c.PrimaryKey ? " PRIMARY KEY" : "";
             var nn   = c.NotNull && !c.PrimaryKey ? " NOT NULL" : "";
             return $"[{c.Name}] {type}{pk}{nn}";
@@ -159,13 +194,27 @@ public sealed class AccessBackendConnector : IBackendConnector
 
     public void AddColumn(string tableName, ColumnSchema column)
     {
-        var canonical = TypeMappings.Resolve(BackendType.Access, column.SqlType);
-        var type = canonical != CanonicalType.Unknown
-            ? TypeMappings.GetDdlType(BackendType.Access, canonical, column.MaxLength)
-            : NormalizeAccessType(column.SqlType);
+        var type = ResolveAccessDdl(column.SqlType, column.MaxLength);
         using var cmd = new OleDbCommand(
             $"ALTER TABLE [{tableName}] ADD COLUMN [{column.Name}] {type}", _conn);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Razrješava tip kolone u Access DDL string.
+    /// Proba sve backend canonical mape (da podrži ADO imena, SQLite tipove, ANSI tipove itd.),
+    /// a za Access-specifične tipove (AUTOINCREMENT, COUNTER, AUTONUMBER) koristi NormalizeAccessType.
+    /// </summary>
+    private static string ResolveAccessDdl(string? sqlType, int maxLength)
+    {
+        // AutoNumber / identity → AUTOINCREMENT (must be checked before canonical lookup)
+        if (TypeMappings.IsAutoNumberType(sqlType?.Trim()))
+            return "AUTOINCREMENT";
+
+        var canonical = TypeMappings.ResolveFromAny(sqlType);
+        if (canonical != CanonicalType.Unknown)
+            return TypeMappings.GetDdlType(BackendType.Access, canonical, maxLength);
+        return NormalizeAccessType(sqlType);
     }
 
     // Access Jet SQL ne prepoznaje ANSI tipove — mapiramo na Access-kompatibilne DDL tipove.
@@ -192,7 +241,7 @@ public sealed class AccessBackendConnector : IBackendConnector
             "FLOAT"     or "REAL"      or "DOUBLE"
                 or "DOUBLE PRECISION"  or "FLOAT8"                  => "DOUBLE",
 
-            "DECIMAL"   or "NUMERIC"   or "NUMBER"                  => "DECIMAL",
+            "DECIMAL"   or "NUMERIC"   or "NUMBER"                  => "DECIMAL(18,4)",
 
             "BIT"       or "BOOLEAN"   or "BOOL"       or "YESNO"  => "YESNO",
 
@@ -204,7 +253,7 @@ public sealed class AccessBackendConnector : IBackendConnector
 
             "CURRENCY"  or "MONEY"     or "SMALLMONEY"              => "CURRENCY",
 
-            "AUTOINCREMENT" or "COUNTER"                            => "AUTOINCREMENT",
+            "AUTOINCREMENT" or "COUNTER" or "AUTONUMBER"             => "AUTOINCREMENT",
 
             _ => "TEXT"   // sigurni fallback za nepoznate tipove
         };
@@ -268,7 +317,7 @@ public sealed class AccessBackendConnector : IBackendConnector
             int n       => new OleDbParameter("p", OleDbType.Integer)      { Value = n },
             long n      => new OleDbParameter("p", OleDbType.Integer)      { Value = (int)Math.Clamp(n, int.MinValue, int.MaxValue) },
             double d    => new OleDbParameter("p", OleDbType.Double)       { Value = d },
-            decimal d   => new OleDbParameter("p", OleDbType.Decimal)      { Value = d },
+            decimal d   => new OleDbParameter("p", OleDbType.Double)        { Value = (double)d },
             DateOnly d  => new OleDbParameter("p", OleDbType.Date)         { Value = d.ToDateTime(TimeOnly.MinValue) },
             DateTime dt => new OleDbParameter("p", OleDbType.Date)         { Value = dt },
             byte[] b    => new OleDbParameter("p", OleDbType.LongVarBinary){ Value = b },

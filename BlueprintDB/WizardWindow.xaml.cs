@@ -15,17 +15,61 @@ public partial class WizardWindow : Window
 
     private int _currentStep = 1;
     private int _programId;
+    private int _existingProgramId;   // > 0 when user selected an existing program to reimport
     private bool _importStarted;
     private bool _importDone;
 
     public WizardWindow()
     {
         InitializeComponent();
-        cbBackendType.ItemsSource  = Enum.GetNames<BackendType>();
+        cbBackendType.ItemsSource   = Enum.GetNames<BackendType>();
         cbBackendType.SelectedIndex = 0;
+        LoadExistingPrograms();
         txtProgramName.Focus();
         WindowSettings.Restore("WizardWindow", this);
         Closing += (_, _) => WindowSettings.Save("WizardWindow", this);
+    }
+
+    private void LoadExistingPrograms()
+    {
+        try
+        {
+            using var db = new BlueprintDbContext();
+            cbExistingProgram.ItemsSource = db.Programis
+                .Where(p => p.Skriven != true)
+                .OrderBy(p => p.Nazivprograma)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("WizardWindow", "Error loading programs", ex);
+        }
+    }
+
+    private void TxtProgramName_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(txtProgramName.Text))
+        {
+            cbExistingProgram.SelectedItem = null;
+            _existingProgramId = 0;
+            pnlReimportWarning.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void CbExistingProgram_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (cbExistingProgram.SelectedValue is int id)
+        {
+            _existingProgramId = id;
+            txtProgramName.Text = "";
+            txtVersion.Text = "";
+            pnlReimportWarning.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            _existingProgramId = 0;
+            pnlReimportWarning.Visibility = Visibility.Collapsed;
+        }
     }
 
     // ── Sidebar ──────────────────────────────────────────────────────────────
@@ -70,9 +114,9 @@ public partial class WizardWindow : Window
             switch (_currentStep)
             {
                 case 1:
-                    if (string.IsNullOrWhiteSpace(txtProgramName.Text))
+                    if (_existingProgramId <= 0 && string.IsNullOrWhiteSpace(txtProgramName.Text))
                     {
-                        MessageBox.Show("Program name cannot be empty.", "Validation",
+                        MessageBox.Show("Enter a new program name or select an existing program.", "Validation",
                             MessageBoxButton.OK, MessageBoxImage.Warning);
                         return;
                     }
@@ -197,18 +241,40 @@ public partial class WizardWindow : Window
         btnBack.IsEnabled = false;
         btnNext.IsEnabled = false;
 
-        var programName = txtProgramName.Text.Trim();
-        var version     = txtVersion.Text.Trim();
         var cs          = GetConnectionString();
         var backendType = Enum.Parse<BackendType>(cbBackendType.SelectedItem?.ToString() ?? "SQLite");
+
+        // Resolve program name — from ComboBox selection or TextBox
+        string programName;
+        if (_existingProgramId > 0)
+        {
+            using var dbName = new BlueprintDbContext();
+            programName = dbName.Programis.Where(p => p.Idprograma == _existingProgramId)
+                              .Select(p => p.Nazivprograma!).FirstOrDefault() ?? "";
+        }
+        else
+        {
+            programName = txtProgramName.Text.Trim();
+        }
+        var version = txtVersion.Text.Trim();
 
         int tablesAdded  = 0;
         int columnsAdded = 0;
 
         try
         {
-            _programId = await Task.Run(() => CreateOrFindProgram(programName, version));
-            Log($"Program '{programName}' ready (ID {_programId}).");
+            if (_existingProgramId > 0)
+            {
+                // Reimport mode: delete existing schema first
+                _programId = _existingProgramId;
+                await Task.Run(() => ClearProgramSchema(_programId));
+                Log($"Existing schema for '{programName}' cleared. Reimporting…");
+            }
+            else
+            {
+                _programId = await Task.Run(() => CreateOrFindProgram(programName, version));
+                Log($"Program '{programName}' ready (ID {_programId}).");
+            }
 
             await Task.Run(() =>
             {
@@ -275,13 +341,16 @@ public partial class WizardWindow : Window
                             k.Nazivkolone == col.Name &&
                             k.Skriven     != true);
 
+                        // Normalize backend-specific type to ADO vocabulary
+                        var adoType = TypeMappings.NormalizeToAdo(col.SqlType, col.MaxLength);
+
                         if (!colExists)
                         {
                             db.Kolones.Add(new Kolone
                             {
                                 Idtabele       = tableId,
                                 Nazivkolone    = col.Name,
-                                Tippodatka     = string.IsNullOrEmpty(col.SqlType) ? null : col.SqlType,
+                                Tippodatka     = adoType,
                                 Fieldsize      = col.MaxLength > 0 ? col.MaxLength.ToString() : null,
                                 Allownull      = col.NotNull ? "No" : "YES",
                                 Key            = col.PrimaryKey,
@@ -293,13 +362,13 @@ public partial class WizardWindow : Window
                             columnsAdded++;
                         }
 
-                        // Register any new SQL type in tippodatka.
+                        // Register any new ADO type in the tippodatka lookup table.
                         // The table has no PK (HasNoKey), so EF tracking is not possible — use raw SQL.
-                        if (!string.IsNullOrEmpty(col.SqlType) && knownTypes.Add(col.SqlType))
+                        if (knownTypes.Add(adoType))
                         {
                             db.Database.ExecuteSqlRaw(
                                 "INSERT INTO tippodatka (tippodatka, korisnik, datumupisa, skriven, vremenskipecat) VALUES ({0},{1},{2},{3},{4})",
-                                col.SqlType,
+                                adoType,
                                 Environment.UserName,
                                 DateTime.Now,
                                 false,
@@ -341,6 +410,19 @@ public partial class WizardWindow : Window
             btnNext.Content   = "Finish";
             btnNext.IsEnabled = true;
         }
+    }
+
+    private static void ClearProgramSchema(int programId)
+    {
+        using var db = new BlueprintDbContext();
+        var tableIds = db.Tabeles
+            .Where(t => t.Idprograma == programId)
+            .Select(t => t.Idtabele)
+            .ToList();
+        if (tableIds.Count > 0)
+            db.Kolones.RemoveRange(db.Kolones.Where(k => tableIds.Contains(k.Idtabele)));
+        db.Tabeles.RemoveRange(db.Tabeles.Where(t => t.Idprograma == programId));
+        db.SaveChanges();
     }
 
     private static int CreateOrFindProgram(string name, string version)
