@@ -1,3 +1,4 @@
+using System.IO;
 using Blueprint.App.Models;
 
 namespace Blueprint.App;
@@ -49,9 +50,21 @@ public static class LogService
             });
             db.SaveChanges();
         }
-        catch
+        catch (Exception writeEx)
         {
-            // Logiranje ne smije rušiti aplikaciju — tiho ignoriramo greške u logu
+            // Logiranje ne smije rušiti aplikaciju — ali zapisujemo grešku u fallback fajl
+            try
+            {
+                var fallbackDir  = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "BlueprintDB");
+                Directory.CreateDirectory(fallbackDir);
+                var fallbackPath = Path.Combine(fallbackDir, "log_fallback.txt");
+                var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{nivo}] [{kategorija}] {poruka}" +
+                           $" | WriteError: {writeEx.GetType().Name}: {writeEx.Message}\n";
+                File.AppendAllText(fallbackPath, line);
+            }
+            catch { /* fallback also failed — nothing we can do */ }
         }
     }
 

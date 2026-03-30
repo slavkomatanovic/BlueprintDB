@@ -199,7 +199,7 @@ public partial class WizardWindow : Window
         "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
         "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
         "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
-        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;",
+        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;Security=none;Authentication=SERVER;",
         "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
         _                    => ""
     };
@@ -224,8 +224,31 @@ public partial class WizardWindow : Window
             Title  = "Select database file",
             Filter = "Database files|*.sqlite;*.db;*.accdb;*.mdb;*.fdb;*.gdb|All files|*.*"
         };
-        if (dlg.ShowDialog() == true) txtPath.Text = dlg.FileName;
+        if (dlg.ShowDialog() != true) return;
+        txtPath.Text = dlg.FileName;
+
+        var detected = DetectBackendFromExtension(dlg.FileName);
+        if (detected is not null)
+        {
+            cbBackendType.SelectedItem = detected.ToString();
+        }
+        else
+        {
+            var ext = System.IO.Path.GetExtension(dlg.FileName).ToLowerInvariant();
+            if (!string.IsNullOrEmpty(ext))
+                MessageBox.Show($"File extension '{ext}' does not match any supported database type.",
+                    "Unknown file type", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
+
+    private static BackendType? DetectBackendFromExtension(string filePath) =>
+        System.IO.Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".sqlite" or ".db"   => BackendType.SQLite,
+            ".accdb"  or ".mdb"  => BackendType.Access,
+            ".fdb"    or ".gdb"  => BackendType.Firebird,
+            _                    => null
+        };
 
     private void BtnBrowseFolder_Click(object sender, RoutedEventArgs e)
     {

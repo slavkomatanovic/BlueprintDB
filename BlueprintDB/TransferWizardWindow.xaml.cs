@@ -187,7 +187,7 @@ public partial class TransferWizardWindow : Window
         "SqlServer"          => "Server=.\\SQLEXPRESS;Database=db;Integrated Security=True;TrustServerCertificate=True;",
         "PostgreSQL"         => "Host=host;Database=db;Username=user;Password=password;",
         "Oracle"             => "Data Source=host:1521/service;User Id=user;Password=password;",
-        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;",
+        "DB2"                => "Server=host:50000;Database=MYDB;UID=user;PWD=pass;Security=none;Authentication=SERVER;",
         "Firebird"           => "DataSource=host;Database=C:\\path\\to\\db.fdb;User=SYSDBA;Password=masterkey;",
         _                    => ""
     };
@@ -208,20 +208,43 @@ public partial class TransferWizardWindow : Window
 
     // ── Browse buttons ────────────────────────────────────────────────────────
 
-    private void BtnSrcBrowse_Click(object sender, RoutedEventArgs e)         => BrowseFile(txtSrcPath);
+    private void BtnSrcBrowse_Click(object sender, RoutedEventArgs e)         => BrowseFile(txtSrcPath, cbSrcType);
     private void BtnSrcBrowseFolder_Click(object sender, RoutedEventArgs e)   => BrowseFolder(txtSrcFolder);
-    private void BtnTgtBrowse_Click(object sender, RoutedEventArgs e)         => BrowseFile(txtTgtPath);
+    private void BtnTgtBrowse_Click(object sender, RoutedEventArgs e)         => BrowseFile(txtTgtPath, cbTgtType);
     private void BtnTgtBrowseFolder_Click(object sender, RoutedEventArgs e)   => BrowseFolder(txtTgtFolder);
 
-    private static void BrowseFile(TextBox t)
+    private static void BrowseFile(TextBox t, ComboBox cb)
     {
         var dlg = new OpenFileDialog
         {
             Title  = "Select database file",
             Filter = "Database files|*.sqlite;*.db;*.accdb;*.mdb;*.fdb;*.gdb|All files|*.*"
         };
-        if (dlg.ShowDialog() == true) t.Text = dlg.FileName;
+        if (dlg.ShowDialog() != true) return;
+        t.Text = dlg.FileName;
+
+        var detected = DetectBackendFromExtension(dlg.FileName);
+        if (detected is not null)
+        {
+            cb.SelectedItem = detected.ToString();
+        }
+        else
+        {
+            var ext = System.IO.Path.GetExtension(dlg.FileName).ToLowerInvariant();
+            if (!string.IsNullOrEmpty(ext))
+                MessageBox.Show($"File extension '{ext}' does not match any supported database type.",
+                    "Unknown file type", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
+
+    private static BackendType? DetectBackendFromExtension(string filePath) =>
+        System.IO.Path.GetExtension(filePath).ToLowerInvariant() switch
+        {
+            ".sqlite" or ".db"   => BackendType.SQLite,
+            ".accdb"  or ".mdb"  => BackendType.Access,
+            ".fdb"    or ".gdb"  => BackendType.Firebird,
+            _                    => null
+        };
 
     private static void BrowseFolder(TextBox t)
     {

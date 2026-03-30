@@ -27,11 +27,18 @@ public sealed class DatabaseTransferService
             try
             {
                 LogService.Info("Transfer", $"Starting table '{table}' ({i + 1}/{tableNames.Count})");
-                var srcCols = source.GetColumnNames(table)
-                                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                var tgtCols = target.GetColumnNames(table)
-                                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                var common  = srcCols.Where(c => tgtCols.Contains(c)).ToList();
+                var srcCols    = source.GetColumnNames(table)
+                                       .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var tgtColsList = target.GetColumnNames(table);
+                var tgtCols    = tgtColsList.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var common     = srcCols.Where(c => tgtCols.Contains(c)).ToList();
+
+                // Use target-side column name casing for INSERT statements.
+                // Backends like PostgreSQL store column names in lowercase and are
+                // case-sensitive when identifiers are quoted — so we must pass the
+                // exact casing the target knows about, not the source casing.
+                var tgtCasingMap    = tgtColsList.ToDictionary(c => c, c => c, StringComparer.OrdinalIgnoreCase);
+                var commonForTarget = common.Select(c => tgtCasingMap.TryGetValue(c, out var tc) ? tc : c).ToList();
 
                 if (common.Count == 0)
                 {
@@ -66,7 +73,7 @@ public sealed class DatabaseTransferService
                 try
                 {
                     target.DeleteAll(table);
-                    target.InsertRows(table, common, reportingRows);
+                    target.InsertRows(table, commonForTarget, reportingRows);
                     target.Commit();
                     ok++;
                 }
@@ -88,7 +95,7 @@ public sealed class DatabaseTransferService
                         {
                             try
                             {
-                                target.InsertRows(table, common, new[] { singleRow });
+                                target.InsertRows(table, commonForTarget, new[] { singleRow });
                                 rowsInserted++;
                             }
                             catch (Exception rowEx)
@@ -99,7 +106,7 @@ public sealed class DatabaseTransferService
                                 try
                                 {
                                     var coerced = CoerceNulls(singleRow, common, sourceTypes);
-                                    target.InsertRows(table, common, new[] { coerced });
+                                    target.InsertRows(table, commonForTarget, new[] { coerced });
                                     rowsInserted++;
                                     LogService.Warning("Transfer",
                                         $"Table '{table}': row inserted with NULL→default substitution.");

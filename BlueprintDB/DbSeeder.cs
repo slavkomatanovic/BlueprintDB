@@ -1,4 +1,5 @@
 using Blueprint.App.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Blueprint.App;
 
@@ -12,6 +13,7 @@ public static class DbSeeder
     {
         using var db = new BlueprintDbContext();
         db.Database.EnsureCreated();
+        EnsureLogTable(db);
 
         // First-time seed: insert the default language
         if (!db.Jeziks.Any())
@@ -235,6 +237,31 @@ public static class DbSeeder
         ("GRP_OPCIJE",           "Options"),
         ("TIP_CMD_IMPORT",       "Import tables into the selected program from the backend on demand."),
     ];
+
+    // ── Schema migration helpers ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Creates the 'log' table if it does not exist in an existing database.
+    /// EnsureCreated() is idempotent and won't add tables that were added to the
+    /// model after the database was first created, so we handle it manually.
+    /// </summary>
+    private static void EnsureLogTable(BlueprintDbContext db)
+    {
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS log (
+                idlog        INTEGER PRIMARY KEY AUTOINCREMENT,
+                datumvrijeme TEXT,
+                nivo         TEXT,
+                kategorija   TEXT,
+                poruka       TEXT NOT NULL DEFAULT '',
+                detalji      TEXT,
+                sqlkod       TEXT,
+                backend      TEXT,
+                idprogram    INTEGER,
+                korisnik     TEXT,
+                masina       TEXT
+            )");
+    }
 
     // ── Private sync helper ─────────────────────────────────────────────────
 

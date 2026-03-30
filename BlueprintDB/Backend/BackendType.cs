@@ -76,7 +76,8 @@ public static class BackendConnectorFactory
                 _ => throw new NotSupportedException($"Backend not supported: {type}")
             };
         }
-        catch (NotSupportedException) { throw; }
+        catch (NotSupportedException)    { throw; }
+        catch (InvalidOperationException) { throw; }
         catch (Exception ex)
         {
             throw new InvalidOperationException(

@@ -224,7 +224,7 @@ public sealed class PostgreSqlBackendConnector : IBackendConnector
                 TypeMappings.ResolveFromAny(c.SqlType) == CanonicalType.Unknown &&
                 !TypeMappings.IsAutoNumberType(c.SqlType))
                 type = MapToPgType(c);
-            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
+            var nn   = (c.NotNull || c.PrimaryKey || TypeMappings.IsAutoNumberType(c.SqlType)) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)

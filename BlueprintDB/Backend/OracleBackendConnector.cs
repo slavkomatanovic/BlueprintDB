@@ -163,7 +163,7 @@ public sealed class OracleBackendConnector : IBackendConnector
         }
     }
 
-    private static object ToOracleValue(object? val) => val switch
+private static object ToOracleValue(object? val) => val switch
     {
         null       => DBNull.Value,
         bool b     => b ? 1 : 0,
@@ -185,7 +185,7 @@ public sealed class OracleBackendConnector : IBackendConnector
         var colDefs = columns.Select(c =>
         {
             var type = TypeMappings.ResolveToDdl(BackendType.Oracle, c.SqlType, c.MaxLength);
-            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
+            var nn   = (c.NotNull || c.PrimaryKey || TypeMappings.IsAutoNumberType(c.SqlType)) ? " NOT NULL" : "";
             return $"  \"{Q(c.Name)}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)

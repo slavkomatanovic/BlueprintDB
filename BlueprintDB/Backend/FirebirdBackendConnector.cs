@@ -227,7 +227,7 @@ public sealed class FirebirdBackendConnector : IBackendConnector
         var colDefs = columns.Select(c =>
         {
             var type = TypeMappings.ResolveToDdl(BackendType.Firebird, c.SqlType, c.MaxLength);
-            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : "";
+            var nn   = (c.NotNull || c.PrimaryKey || TypeMappings.IsAutoNumberType(c.SqlType)) ? " NOT NULL" : "";
             return $"  \"{Q(FbId(c.Name))}\" {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)

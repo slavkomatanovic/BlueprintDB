@@ -7,6 +7,10 @@ public partial class App : Application
     private void App_Startup(object sender, StartupEventArgs e)
     {
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+        // Add bundled DB2 clidriver/bin to PATH so its DLL dependencies are resolvable.
+        // Then auto-register the ODBC driver in HKCU (no admin rights needed) so
+        // System.Data.Odbc can use it without any manual user installation.
         // Global UI thread exception handler — log and show friendly message
         DispatcherUnhandledException += (_, ev) =>
         {
@@ -22,7 +26,6 @@ public partial class App : Application
             if (ev.ExceptionObject is Exception ex)
             {
                 LogService.Error("App", "Unhandled background thread exception", ex);
-                // Show dialog on UI thread — process may still terminate after this
                 try
                 {
                     Dispatcher.Invoke(() =>
@@ -58,8 +61,6 @@ public partial class App : Application
 
         LogService.Info("Startup", $"Blueprint started. User: {Environment.UserName}, Machine: {Environment.MachineName}");
 
-        // MainWindow is the persistent shell container.
-        // It shows KonfiguracijaView internally on startup.
         new MainWindow().Show();
     }
 

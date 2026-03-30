@@ -151,18 +151,49 @@ public sealed class SqlServerBackendConnector : IBackendConnector
     {
         var colList   = string.Join(", ", columns.Select(c => $"[{Q(c)}]"));
         var paramList = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
-        var sql = $"INSERT INTO [{Q(_schema)}].[{Q(tableName)}] ({colList}) VALUES ({paramList})";
+        var sql       = $"INSERT INTO [{Q(_schema)}].[{Q(tableName)}] ({colList}) VALUES ({paramList})";
+        var hasIdentity = HasIdentityColumn(tableName);
 
+        if (hasIdentity) ExecDdl($"SET IDENTITY_INSERT [{Q(_schema)}].[{Q(tableName)}] ON");
+        try
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.Transaction = _tx;
+            cmd.CommandText = sql;
+            foreach (var row in rows)
+            {
+                cmd.Parameters.Clear();
+                for (int i = 0; i < columns.Count; i++)
+                    cmd.Parameters.AddWithValue($"@p{i}", row[columns[i]] ?? DBNull.Value);
+                cmd.ExecuteNonQuery();
+            }
+        }
+        finally
+        {
+            if (hasIdentity) ExecDdl($"SET IDENTITY_INSERT [{Q(_schema)}].[{Q(tableName)}] OFF");
+        }
+    }
+
+    private bool HasIdentityColumn(string tableName)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.Transaction = _tx;
+        cmd.CommandText =
+            "SELECT COUNT(*) FROM sys.columns c " +
+            "JOIN sys.tables t ON c.object_id = t.object_id " +
+            "JOIN sys.schemas s ON t.schema_id = s.schema_id " +
+            "WHERE s.name = @s AND t.name = @t AND c.is_identity = 1";
+        cmd.Parameters.AddWithValue("@s", _schema);
+        cmd.Parameters.AddWithValue("@t", tableName);
+        return (int)cmd.ExecuteScalar()! > 0;
+    }
+
+    private void ExecDdl(string sql)
+    {
         using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
         cmd.CommandText = sql;
-        foreach (var row in rows)
-        {
-            cmd.Parameters.Clear();
-            for (int i = 0; i < columns.Count; i++)
-                cmd.Parameters.AddWithValue($"@p{i}", row[columns[i]] ?? DBNull.Value);
-            cmd.ExecuteNonQuery();
-        }
+        cmd.ExecuteNonQuery();
     }
 
     public void CreateTable(string tableName, IReadOnlyList<ColumnSchema> columns)
@@ -171,7 +202,7 @@ public sealed class SqlServerBackendConnector : IBackendConnector
         var colDefs = columns.Select(c =>
         {
             var type = TypeMappings.ResolveToDdl(BackendType.SqlServer, c.SqlType, c.MaxLength);
-            var nn   = (c.NotNull || c.PrimaryKey) ? " NOT NULL" : " NULL";
+            var nn   = (c.NotNull || c.PrimaryKey || TypeMappings.IsAutoNumberType(c.SqlType)) ? " NOT NULL" : " NULL";
             return $"  [{Q(c.Name)}] {type}{nn}";
         }).ToList();
         if (pkCols.Count > 0)
