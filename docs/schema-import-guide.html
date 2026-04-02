@@ -1,0 +1,286 @@
+<h2 class="section-title">Schema Import Guide</h2>
+<article class="bp-doc">
+
+<nav class="bp-doc-breadcrumb">
+  <a href="/">Home</a> &rsaquo; <a href="/tutorials/">Tutorials</a> &rsaquo; Schema Import Guide
+</nav>
+
+<p class="bp-doc-intro">
+  Manually documenting a database schema — copying table names, column names, data types, and constraints into a metadata tool — is slow and error-prone, especially on large databases with dozens of tables. BlueprintDB's Schema Import feature reads the live structure of your database and populates a Blueprint automatically, in seconds. This guide explains how Schema Import works, which backends it supports, and how to use it effectively.
+</p>
+
+<nav class="bp-doc-toc">
+  <strong>In this guide</strong>
+  <ol>
+    <li><a href="#what-it-does">What Schema Import does</a></li>
+    <li><a href="#supported-backends">Supported backends</a></li>
+    <li><a href="#step-by-step">Step-by-step: importing a schema</a></li>
+    <li><a href="#canonical-types">Understanding the canonical type system</a></li>
+    <li><a href="#existing-blueprint">Importing into an existing Blueprint</a></li>
+    <li><a href="#next-steps">After import: next steps</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<hr>
+
+<h2 id="what-it-does">What Schema Import does</h2>
+
+<p>Schema Import connects to a live database and reads its structural metadata. For each table it finds, it records:</p>
+
+<ul>
+  <li>Table name</li>
+  <li>Column names, data types, lengths and precision</li>
+  <li>Nullability (NOT NULL constraints)</li>
+  <li>Default values</li>
+  <li>Primary key columns</li>
+  <li>Foreign key relationships (where the engine exposes them)</li>
+</ul>
+
+<p>
+  The raw database types are translated into BlueprintDB's <em>canonical type system</em> — a backend-neutral set of types (String, Integer, Boolean, Decimal, DateTime, etc.) that can be translated back to any supported engine. This is what makes it possible to import a schema from MySQL and sync it to PostgreSQL, or from Access to SQL Server, without manual DDL rewriting.
+</p>
+
+<p>Schema Import does <strong>not</strong> read or transfer data — it only reads structure.</p>
+
+<hr>
+
+<h2 id="supported-backends">Supported backends</h2>
+
+<table>
+  <thead>
+    <tr><th>Backend</th><th>Schema Import</th><th>Tier</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>SQLite</td><td>✓</td><td>Free</td></tr>
+    <tr><td>MS Access (.accdb / .mdb)</td><td>✓</td><td>Free</td></tr>
+    <tr><td>MySQL</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>MariaDB</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>PostgreSQL</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>SQL Server</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>Oracle</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>IBM DB2</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>Firebird</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>dBASE (.dbf)</td><td>✓</td><td>Pro</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="step-by-step">Step-by-step: importing a schema</h2>
+
+<h3>1. Create or select a Program</h3>
+
+<p>
+  Schema Import populates the Blueprint for the currently active Program. If you have not created one yet, go to <strong>Programs</strong> → <strong>New</strong>, enter a name, and save.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Programs window, one program selected/active]</p>
+
+<h3>2. Open Schema Import</h3>
+
+<p>Click <strong>Schema Import</strong> in the main menu. The import window opens with a program selector at the bottom.</p>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Import window, empty, backend dropdown visible]</p>
+
+<h3>3. Select a Program and the backend</h3>
+
+<p>At the bottom of the window, select your Program from the <strong>Existing Program</strong> combo box, then press <strong>Next</strong>. On the next page, select your database engine from the dropdown. The connection form changes to match the backend:</p>
+
+<ul>
+  <li>
+    <strong>File-based backends (SQLite, Access, dBASE):</strong> A file path field appears. Click the folder icon to browse to the file.
+  </li>
+  <li>
+    <strong>Server backends (MySQL, PostgreSQL, SQL Server, Oracle, DB2, Firebird):</strong> Host, port, database name, username, and password fields appear.
+  </li>
+</ul>
+
+<p>Fill in the connection details and click <strong>Next</strong>.</p>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Import window with PostgreSQL selected, connection fields filled in, Next button highlighted]</p>
+
+<h3>4. Import runs automatically</h3>
+
+<p>
+  BlueprintDB connects to the database, reads all user tables found, and imports them into the Blueprint automatically. System tables and internal metadata tables are filtered out. A progress indicator shows which table is currently being processed.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Import in progress, progress indicator visible]</p>
+
+<p>
+  When complete, a confirmation message shows how many tables and columns were imported.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Import complete message, e.g. "12 tables, 87 columns imported successfully"]</p>
+
+<h3>5. Verify the result</h3>
+
+<p>
+  Open the <strong>Tables</strong> window — all imported tables should appear in the list. Select a table and open <strong>Columns</strong> to inspect the mapped column definitions.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Tables window with imported tables; Columns window open for one table showing name, type, length, nullable]</p>
+
+<p>Check the following:</p>
+
+<ul>
+  <li><strong>Types</strong> — confirm that column types have been mapped correctly (see the type mapping section below)</li>
+  <li><strong>Primary keys</strong> — the PK column should be flagged; auto-increment columns should show the Identity flag</li>
+  <li><strong>Nullable</strong> — columns with NOT NULL constraints should show the required flag</li>
+</ul>
+
+<hr>
+
+<h2 id="canonical-types">Understanding the canonical type system</h2>
+
+<p>
+  BlueprintDB does not store MySQL types, PostgreSQL types, or Oracle types directly. Instead, each column is stored with a <em>canonical type</em> — a backend-neutral representation. When syncing to a target engine, canonical types are translated to the closest native equivalent.
+</p>
+
+<p>This is the full canonical type list and its common mappings:</p>
+
+<table>
+  <thead>
+    <tr><th>Canonical type</th><th>MySQL</th><th>PostgreSQL</th><th>SQL Server</th><th>SQLite</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>String(n)</td><td>VARCHAR(n)</td><td>VARCHAR(n)</td><td>NVARCHAR(n)</td><td>TEXT</td></tr>
+    <tr><td>LongText</td><td>LONGTEXT</td><td>TEXT</td><td>NVARCHAR(MAX)</td><td>TEXT</td></tr>
+    <tr><td>Integer</td><td>INT</td><td>INTEGER</td><td>INT</td><td>INTEGER</td></tr>
+    <tr><td>BigInteger</td><td>BIGINT</td><td>BIGINT</td><td>BIGINT</td><td>INTEGER</td></tr>
+    <tr><td>Boolean</td><td>TINYINT(1)</td><td>BOOLEAN</td><td>BIT</td><td>INTEGER</td></tr>
+    <tr><td>Decimal(p,s)</td><td>DECIMAL(p,s)</td><td>NUMERIC(p,s)</td><td>NUMERIC(p,s)</td><td>REAL</td></tr>
+    <tr><td>Float</td><td>DOUBLE</td><td>FLOAT8</td><td>FLOAT</td><td>REAL</td></tr>
+    <tr><td>DateTime</td><td>DATETIME</td><td>TIMESTAMP</td><td>DATETIME2</td><td>TEXT</td></tr>
+    <tr><td>Date</td><td>DATE</td><td>DATE</td><td>DATE</td><td>TEXT</td></tr>
+    <tr><td>Binary</td><td>BLOB</td><td>BYTEA</td><td>VARBINARY(MAX)</td><td>BLOB</td></tr>
+  </tbody>
+</table>
+
+<p>
+  If a database column uses a type that does not map cleanly to a canonical type, BlueprintDB falls back to <em>String</em> or <em>LongText</em> and notes this in the import log. Review these cases manually after import.
+</p>
+
+<hr>
+
+<h2 id="existing-blueprint">Importing into an existing Blueprint</h2>
+
+<p>
+  If the active Program already has tables defined, Schema Import will add new tables and columns without overwriting existing ones. Tables with the same name as existing Blueprint entries are skipped — BlueprintDB does not merge or overwrite existing metadata automatically.
+</p>
+
+<p>
+  To re-import a table that already exists in the Blueprint, delete it from the Tables window first, then run Schema Import again and select that table.
+</p>
+
+<hr>
+
+<h2 id="next-steps">After import: next steps</h2>
+
+<p>Once the schema is imported and verified, you have several options:</p>
+
+<ul>
+  <li>
+    <strong>Use Schema Sync</strong> to apply the Blueprint to a different database engine — for example, sync the imported MySQL schema to a PostgreSQL target. See the <a href="/mysql-to-postgresql-migration/">MySQL to PostgreSQL migration guide</a> for a full walkthrough.
+  </li>
+  <li>
+    <strong>Use Transfer Data</strong> to copy row data from the source database to the target, after Schema Sync has created the structure.
+  </li>
+  <li>
+    <strong>Maintain the Blueprint manually</strong> — add, rename, or remove columns in BlueprintDB and use Schema Sync to push changes to the live database over time.
+  </li>
+</ul>
+
+<p class="screenshot-title">[SCREENSHOT: Main BlueprintDB window with Schema Sync and Transfer Data buttons highlighted in the menu]</p>
+
+<hr>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3>Connect fails — "Unable to connect to the server"</h3>
+<p>
+  Check that the host and port are correct, the database server is running, and the network allows connections on that port. For cloud databases, verify that the firewall or security group allows inbound connections from your IP address.
+</p>
+
+<h3>Some tables are missing from the list</h3>
+<p>
+  BlueprintDB only lists tables in the schema/catalog specified in the connection. Views, temporary tables, and system tables are excluded. If you expected a table and it is not listed, confirm it exists in the connected database with a direct query:
+  <code>SHOW TABLES;</code> (MySQL) or <code>\dt</code> (PostgreSQL).
+</p>
+
+<h3>Column type shows as String when it should be something else</h3>
+<p>
+  The source column uses a vendor-specific type that BlueprintDB does not recognise (e.g. PostgreSQL <code>JSONB</code>, MySQL <code>ENUM</code>, Oracle <code>CLOB</code>). BlueprintDB falls back to String or LongText in these cases. After import, manually change the column type in the Columns window to the canonical type that best fits your data.
+</p>
+
+<h3>Import completes but no tables appear in the Tables window</h3>
+<p>
+  Confirm that the correct Program is active. Open the Programs window and verify the right program is selected. Schema Import always writes to the currently active program.
+</p>
+
+<hr>
+
+<h2>Summary</h2>
+
+<p>
+  Schema Import eliminates the most tedious part of setting up a Blueprint — manual data entry. It reads the live structure of any supported database, translates types to BlueprintDB's canonical format, and populates the Blueprint in seconds. From there, Schema Sync and Transfer Data can move the schema and data to any other supported engine.
+</p>
+
+<p>
+  <a href="https://github.com/slavkomatanovic/BlueprintDB/releases/latest" class="bp-doc-cta">Download BlueprintDB</a>
+</p>
+
+<hr>
+
+<div class="bp-doc-seealso">
+  <strong>See also</strong>
+  <ul>
+    <li><a href="/schema-sync-guide/">How to Sync a Database Schema with BlueprintDB</a></li>
+    <li><a href="/mysql-to-postgresql-migration/">How to Migrate from MySQL to PostgreSQL with BlueprintDB</a></li>
+    <li><a href="/access-to-sqlserver-migration/">How to Migrate from Access to SQL Server with BlueprintDB</a></li>
+  </ul>
+  <a href="/tutorials/" class="bp-doc-back">&larr; Back to Tutorials</a>
+</div>
+
+</article>
+
+<style>
+.bp-doc { max-width: 780px; margin: 0 auto; font-size: 1rem; line-height: 1.75; color: #1e293b; }
+.bp-doc-intro { font-size: 1.1rem; color: #334155; }
+.bp-doc h2 { font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; color: #0f172a; }
+.bp-doc h3 { font-size: 1.1rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #1e293b; }
+.bp-doc pre { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; overflow-x: auto; font-size: 0.875rem; }
+.bp-doc code { font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.875rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+.bp-doc pre code { background: none; padding: 0; }
+.bp-doc blockquote { border-left: 4px solid #3b82f6; margin: 1.5rem 0; padding: 12px 20px; background: #eff6ff; border-radius: 0 8px 8px 0; color: #1e40af; }
+.bp-doc blockquote strong { color: #1e3a8a; }
+.bp-doc ul, .bp-doc ol { padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
+.bp-doc li { margin-bottom: 0.4rem; }
+.bp-doc hr { border: none; border-top: 1px solid #e2e8f0; margin: 2.5rem 0; }
+.bp-doc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.875rem; }
+.bp-doc th { background: #f1f5f9; text-align: left; padding: 10px 14px; border: 1px solid #e2e8f0; font-weight: 600; color: #0f172a; }
+.bp-doc td { padding: 9px 14px; border: 1px solid #e2e8f0; color: #334155; }
+.bp-doc tr:nth-child(even) td { background: #f8fafc; }
+.bp-doc-cta { display: inline-block; background: #1d4ed8; color: #fff; padding: 12px 24px; border-radius: 8px; font-weight: 600; text-decoration: none; margin-top: 1rem; }
+.bp-doc-cta:hover { background: #3b82f6; color: #fff; text-decoration: none; }
+.section-title { text-align: center; margin: 30px 0; }
+.screenshot-title { text-align: center; margin: 30px 0; }
+.bp-doc-toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 24px; margin: 1.5rem 0 2rem; display: inline-block; min-width: 260px; }
+.bp-doc-toc strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-toc ol { margin: 0; padding-left: 1.25rem; }
+.bp-doc-toc li { margin-bottom: 0.3rem; font-size: 0.925rem; }
+.bp-doc-toc a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-toc a:hover { text-decoration: underline; }
+.bp-doc-breadcrumb { font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem; }
+.bp-doc-breadcrumb a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-breadcrumb a:hover { text-decoration: underline; }
+.bp-doc-seealso { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px 24px; margin-top: 2rem; }
+.bp-doc-seealso strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-seealso ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+.bp-doc-seealso li { margin-bottom: 0.35rem; font-size: 0.925rem; }
+.bp-doc-seealso a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-seealso a:hover { text-decoration: underline; }
+.bp-doc-back { font-size: 0.9rem; font-weight: 600; color: #475569; text-decoration: none; }
+.bp-doc-back:hover { color: #1d4ed8; }
+</style>

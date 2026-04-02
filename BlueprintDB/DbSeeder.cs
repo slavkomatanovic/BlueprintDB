@@ -59,6 +59,7 @@ public static class DbSeeder
         ("MENU_TRANSFER",          "Data Migration"),
         ("MENU_PUTANJA",           "Path / Start"),
         ("MENU_KONFIGURACIJA",     "Configuration"),
+        ("MENU_RESET_APP",         "Reset Application\u2026"),
         ("MENU_KRAJ",              "Exit"),
 
         // ── Toolbar buttons (MainWindow) ─────────────────────────────────────
@@ -229,6 +230,8 @@ public static class DbSeeder
         ("MSG_ODABERI_POLJE_RELACIJE", "Please select a field (column) for the relation."),
         ("MSG_KOLONA_POD_RELACIJOM",  "Column '{0}' is referenced in {1} relation(s) and cannot be deleted.\nRemove the relation(s) in the Relations window first."),
         ("MSG_TABELA_POD_RELACIJOM",  "Table '{0}' has relations defined. Delete the relations first, then delete the table.\n\nRelations:\n{1}"),
+        ("MSG_RESET_CONFIRM1",       "This will delete all programs, tables, columns and relations. Continue?"),
+        ("MSG_RESET_CONFIRM2",       "This operation is irreversible. Are you sure?"),
 
         // ── KonfiguracijaWindow ───────────────────────────────────────────────
         ("LBL_TIP",                "Type:"),
@@ -320,6 +323,9 @@ public static class DbSeeder
         ("CHK_IGNORE_VERSION",   "Ignore version"),
         ("GRP_OPCIJE",           "Options"),
         ("TIP_CMD_IMPORT",       "Import tables into the selected program from the backend on demand."),
+        ("MENU_RESET_APP",      "Reset Application\u2026"),
+        ("MSG_RESET_CONFIRM1",  "This will delete all programs, tables, columns and relations. Continue?"),
+        ("MSG_RESET_CONFIRM2",  "This operation is irreversible. Are you sure?"),
     ];
 
     // ── Schema migration helpers ─────────────────────────────────────────────

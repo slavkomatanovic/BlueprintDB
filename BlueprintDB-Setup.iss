@@ -1,9 +1,9 @@
 #define MyAppName "BlueprintDB"
-#define MyAppVersion "1.0.6"
+#define MyAppVersion "1.0.7"
 #define MyAppPublisher "blueprintdb.io"
 #define MyAppURL "https://blueprintdb.io"
 #define MyAppExeName "BlueprintApp.exe"
-#define MyPublishDir "C:\mysoftware\publish\Blueprint-v1.0.6-win-x64"
+#define MyPublishDir "C:\mysoftware\publish\Blueprint-v1.0.7-win-x64"
 #define MyIconFile "C:\mysoftware\blueprint\icons\pragma.ico"
 
 [Setup]

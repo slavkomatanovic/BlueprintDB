@@ -1,0 +1,323 @@
+<h2 class="section-title">MySQL to PostgreSQL Migration</h2>
+<article class="bp-doc">
+
+<nav class="bp-doc-breadcrumb">
+  <a href="/">Home</a> &rsaquo; <a href="/tutorials/">Tutorials</a> &rsaquo; MySQL to PostgreSQL Migration
+</nav>
+
+<p class="bp-doc-intro">
+  Migrating a production database from MySQL to PostgreSQL is one of the more demanding infrastructure tasks a developer can face. The two engines share SQL as a common language, but differ significantly in data types, identifier quoting, auto-increment syntax, and constraint handling. Done manually, the process involves exporting a schema, rewriting DDL statements, recreating indexes and foreign keys, and only then moving the actual data — with ample opportunity for mistakes at every step. This guide walks through the entire migration using <strong>BlueprintDB</strong>: from importing the MySQL schema into a Blueprint, syncing it to a fresh PostgreSQL database, and transferring all table data with the built-in Transfer Data Wizard.
+</p>
+
+<nav class="bp-doc-toc">
+  <strong>In this guide</strong>
+  <ol>
+    <li><a href="#prerequisites">Prerequisites</a></li>
+    <li><a href="#step-1">Create a Program in BlueprintDB</a></li>
+    <li><a href="#step-2">Import the MySQL Schema</a></li>
+    <li><a href="#step-3">Review and Adjust the Blueprint</a></li>
+    <li><a href="#step-4">Sync the Schema to PostgreSQL</a></li>
+    <li><a href="#step-5">Transfer the Data</a></li>
+    <li><a href="#step-6">Verify the Migration</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<hr>
+
+<h2 id="prerequisites">Prerequisites</h2>
+
+<ul>
+  <li>BlueprintDB Pro installed (MySQL and PostgreSQL backends require a Pro license)</li>
+  <li>Network access to both the source MySQL server and the target PostgreSQL server</li>
+  <li>An empty target database already created in PostgreSQL:
+    <pre><code>CREATE DATABASE myapp;</code></pre>
+  </li>
+  <li>Credentials with read access on MySQL and create/write access on PostgreSQL</li>
+</ul>
+
+<p>BlueprintDB runs on Windows and connects to remote servers — the databases themselves do not need to be local.</p>
+
+<hr>
+
+<h2 id="step-1">Step 1 — Create a Program in BlueprintDB</h2>
+
+<p>
+  BlueprintDB organises your work into <em>Programs</em>. A Program is a named container that holds the metadata (tables, columns, relations) for one logical database. Before importing anything, create a Program that will represent your MySQL source database.
+</p>
+
+<ol>
+  <li>Open BlueprintDB and click <strong>Programs</strong> in the main menu.</li>
+  <li>Click <strong>New</strong>, enter a name (e.g. <em>MyApp — MySQL Source</em>), and click <strong>Save</strong>.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Programs window with a new program saved, cursor on the newly created row]</p>
+
+<p>
+  The Program is now the active context. All subsequent schema operations will be scoped to it.
+</p>
+
+<hr>
+
+<h2 id="step-2">Step 2 — Import the MySQL Schema</h2>
+
+<p>
+  Schema Import reads the live structure of a database — tables, columns, data types, nullability, defaults, primary keys, and foreign keys — and populates the Blueprint automatically. This replaces manual entry entirely.
+</p>
+
+<ol>
+  <li>Click <strong>Schema Import</strong> in the main menu.</li>
+  <li>At the bottom of the window, select from the combo box <strong>Existing Program</strong> the name of the program you created in Step 1 (e.g. <em>MyApp — MySQL Source</em>).</li>
+  <li>Press <strong>Next</strong>.</li>
+  <li>Select <strong>MySQL</strong> as the backend.</li>
+  <li>Enter the connection details:
+    <ul>
+      <li><strong>Host</strong> — IP address or hostname of the MySQL server</li>
+      <li><strong>Port</strong> — default is <code>3306</code></li>
+      <li><strong>Database</strong> — the source database name</li>
+      <li><strong>Username / Password</strong></li>
+    </ul>
+  </li>
+  <li>Click <strong>Next</strong>. BlueprintDB imports all tables from the database automatically.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Import window, MySQL selected, connection fields filled]</p>
+
+<p>
+  After import, open the <strong>Tables</strong> and <strong>Columns</strong> windows to verify the result. Every table from your MySQL database should now appear in the Blueprint, with columns, data types, and constraints correctly mapped to BlueprintDB's canonical type system.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Tables window showing the imported table list; Columns window open for one table showing column names, types, nullability]</p>
+
+<blockquote>
+  <strong>Note on type mapping:</strong> BlueprintDB uses a canonical type system that sits between backend-specific types. MySQL's <code>TINYINT(1)</code> is mapped to <em>Boolean</em>, <code>VARCHAR(n)</code> to <em>String</em>, <code>DECIMAL(p,s)</code> to <em>Decimal</em>, and so on. When syncing to PostgreSQL, these canonical types are translated to the closest native PostgreSQL equivalent — <code>BOOLEAN</code>, <code>VARCHAR(n)</code>, <code>NUMERIC(p,s)</code>.
+</blockquote>
+
+<hr>
+
+<h2 id="step-3">Step 3 — Review and Adjust the Blueprint</h2>
+
+<p>
+  Before syncing to PostgreSQL, take a moment to review the imported schema. This is your opportunity to catch anything that needs adjustment before it is applied to the new database.
+</p>
+
+<p>Common things to check:</p>
+
+<ul>
+  <li><strong>Column types</strong> — confirm that MySQL-specific types have been mapped as expected. Open the Columns window for each table and scan the Type column.</li>
+  <li><strong>Primary keys</strong> — verify that auto-increment columns are marked correctly. BlueprintDB will generate PostgreSQL <code>SERIAL</code> or <code>IDENTITY</code> syntax accordingly.</li>
+  <li><strong>Relations</strong> — if your MySQL schema uses foreign keys, open the <strong>Relations</strong> window to confirm they were imported. These will be created as <code>FOREIGN KEY</code> constraints in PostgreSQL.</li>
+  <li><strong>Column names</strong> — PostgreSQL folds unquoted identifiers to lowercase. If your MySQL schema uses mixed-case column names, this is the moment to decide whether to standardise them.</li>
+</ul>
+
+<p>
+  Any change you make here is reflected when the schema is synced to PostgreSQL — the Blueprint is the source of truth.
+</p>
+
+<hr>
+
+<h2 id="step-4">Step 4 — Sync the Schema to PostgreSQL</h2>
+
+<p>
+  Schema Sync compares the current Blueprint against the live target database and generates the DDL statements needed to bring the target in line with the Blueprint. On an empty PostgreSQL database, this means creating all tables, columns, constraints, and indexes from scratch.
+</p>
+
+<ol>
+  <li>From the main menu, click <strong>Schema Sync</strong>.</li>
+  <li>Select <strong>PostgreSQL</strong> as the backend.</li>
+  <li>Enter the connection details for the target PostgreSQL database:
+    <ul>
+      <li><strong>Host, Port</strong> (default <code>5432</code>), <strong>Database, Username, Password</strong></li>
+    </ul>
+  </li>
+  <li>Click <strong>Analyse</strong>. BlueprintDB compares the Blueprint against the PostgreSQL database and lists all differences.</li>
+  <li>Review the diff list — on a fresh database, all tables will appear as <em>missing</em> and will be created.</li>
+  <li>Click <strong>Apply</strong> to execute the DDL.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Sync window, PostgreSQL selected, diff list showing all tables as "To be created", Apply button highlighted]</p>
+
+<p>
+  BlueprintDB executes the statements in dependency order — tables with no foreign keys first, then tables that reference them — so constraint creation never fails due to missing referenced tables.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Sync completed successfully, all items checked green]</p>
+
+<p>
+  At this point the PostgreSQL database has the full schema: all tables with correct column types, primary keys, and foreign key constraints. No data has been transferred yet.
+</p>
+
+<hr>
+
+<h2 id="step-5">Step 5 — Transfer the Data</h2>
+
+<p>
+  With the schema in place, the Transfer Data Wizard moves the actual row data from MySQL to PostgreSQL. The wizard handles type conversion, batch insertion, and transaction safety automatically.
+</p>
+
+<ol>
+  <li>From the main menu, click <strong>Transfer Data</strong>.</li>
+  <li>Configure the <strong>source</strong> connection:
+    <ul>
+      <li>Backend: <strong>MySQL</strong></li>
+      <li>Enter the same MySQL connection details used in Step 2.</li>
+    </ul>
+  </li>
+  <li>Configure the <strong>destination</strong> connection:
+    <ul>
+      <li>Backend: <strong>PostgreSQL</strong></li>
+      <li>Enter the PostgreSQL connection details used in Step 4.</li>
+    </ul>
+  </li>
+  <li>Click <strong>Next</strong>. The wizard lists all tables found in the source and lets you select which to transfer.</li>
+  <li>Select the tables (or select all) and click <strong>Start Transfer</strong>.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Transfer Data Wizard — source MySQL and destination PostgreSQL configured, table selection screen with all tables selected]</p>
+
+<p>
+  The wizard processes tables in sequence, displaying a progress bar and row count per table. If a table fails (e.g. due to a constraint violation), the error is logged and the wizard continues with the remaining tables.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Transfer in progress, log panel showing rows transferred per table, progress bar]</p>
+
+<p>
+  When the transfer completes, the log shows a summary: tables processed, rows transferred, and any errors encountered.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Transfer complete screen, summary showing tables processed, total rows transferred, 0 errors]</p>
+
+<hr>
+
+<h2 id="step-6">Step 6 — Verify the Migration</h2>
+
+<p>
+  After the transfer, connect to the PostgreSQL database with your preferred client (psql, DBeaver, DataGrip) and run a quick sanity check:
+</p>
+
+<pre><code>-- Count rows in each table and compare with MySQL source
+SELECT schemaname, tablename, n_live_tup
+FROM pg_stat_user_tables
+ORDER BY tablename;
+</code></pre>
+
+<p>
+  Cross-reference the row counts against the MySQL source. If all counts match, the migration is complete.
+</p>
+
+<p>
+  For applications using sequences (auto-increment columns), reset the PostgreSQL sequences to avoid primary key conflicts when the application starts inserting new rows:
+</p>
+
+<pre><code>-- Example: reset sequence for table "orders", column "id"
+SELECT setval('orders_id_seq', (SELECT MAX(id) FROM orders));
+</code></pre>
+
+<p>
+  Run this for each auto-increment column in the migrated schema. BlueprintDB's Schema Sync log shows which columns were created as <code>SERIAL</code> or <code>IDENTITY</code>, making it straightforward to identify which sequences need resetting.
+</p>
+
+<hr>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3>Schema Sync fails with "relation already exists"</h3>
+<p>
+  The target PostgreSQL database is not empty. Either drop the existing tables or create a new empty database and run Schema Sync against that.
+</p>
+
+<h3>Data Transfer fails with "invalid input syntax for type boolean"</h3>
+<p>
+  MySQL stores booleans as <code>TINYINT(1)</code> with values 0 and 1. If BlueprintDB did not map the column to Boolean during import (check the column type in the Columns window), the raw integer 1 will be inserted into a PostgreSQL <code>BOOLEAN</code> column, causing this error. Fix: open the column in BlueprintDB, change the type to Boolean, re-run Schema Sync (to <code>ALTER</code> the column), then re-run the Transfer.
+</p>
+
+<h3>Foreign key constraint violations during Transfer</h3>
+<p>
+  The Transfer wizard processes tables in the order they appear in the Blueprint, which may not respect foreign key dependency order. Solution: temporarily disable foreign key checks in PostgreSQL before the transfer:
+</p>
+<pre><code>SET session_replication_role = replica;
+-- run transfer
+SET session_replication_role = DEFAULT;
+</code></pre>
+
+<h3>Connection refused on PostgreSQL port 5432</h3>
+<p>
+  Check <code>pg_hba.conf</code> to confirm that the BlueprintDB host is allowed to connect, and that <code>listen_addresses</code> in <code>postgresql.conf</code> includes the interface BlueprintDB is connecting to.
+</p>
+
+<hr>
+
+<h2>Summary</h2>
+
+<p>
+  Migrating from MySQL to PostgreSQL with BlueprintDB involves four main operations:
+</p>
+
+<ol>
+  <li><strong>Schema Import</strong> — reads the MySQL schema into a Blueprint, mapping all types automatically.</li>
+  <li><strong>Review</strong> — optional adjustments to the Blueprint before the schema is applied.</li>
+  <li><strong>Schema Sync</strong> — creates all tables, columns, and constraints in the PostgreSQL target.</li>
+  <li><strong>Transfer Data</strong> — moves row data from MySQL to PostgreSQL with type conversion handled internally.</li>
+</ol>
+
+<p>
+  The same workflow applies to any other backend combination supported by BlueprintDB — SQLite to SQL Server, Access to Oracle, PostgreSQL to DB2, and so on. The canonical type system ensures that column types are translated correctly regardless of source and target engine.
+</p>
+
+<p>
+  <a href="https://github.com/slavkomatanovic/BlueprintDB/releases/latest" class="bp-doc-cta">Download BlueprintDB</a>
+</p>
+
+<hr>
+
+<div class="bp-doc-seealso">
+  <strong>See also</strong>
+  <ul>
+    <li><a href="/access-to-sqlserver-migration/">How to Migrate from Access to SQL Server with BlueprintDB</a></li>
+    <li><a href="/schema-import-guide/">How to Import a Database Schema with BlueprintDB</a></li>
+    <li><a href="/schema-sync-guide/">How to Sync a Database Schema with BlueprintDB</a></li>
+  </ul>
+  <a href="/tutorials/" class="bp-doc-back">&larr; Back to Tutorials</a>
+</div>
+
+</article>
+
+<style>
+.bp-doc { max-width: 780px; margin: 0 auto; font-size: 1rem; line-height: 1.75; color: #1e293b; }
+.bp-doc-intro { font-size: 1.1rem; color: #334155; }
+.bp-doc h2 { font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; color: #0f172a; }
+.bp-doc h3 { font-size: 1.1rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #1e293b; }
+.bp-doc pre { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; overflow-x: auto; font-size: 0.875rem; }
+.bp-doc code { font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.875rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+.bp-doc pre code { background: none; padding: 0; }
+.bp-doc blockquote { border-left: 4px solid #3b82f6; margin: 1.5rem 0; padding: 12px 20px; background: #eff6ff; border-radius: 0 8px 8px 0; color: #1e40af; }
+.bp-doc blockquote strong { color: #1e3a8a; }
+.bp-doc ul, .bp-doc ol { padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
+.bp-doc li { margin-bottom: 0.4rem; }
+.bp-doc hr { border: none; border-top: 1px solid #e2e8f0; margin: 2.5rem 0; }
+.bp-doc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.9rem; }
+.bp-doc th { background: #f1f5f9; text-align: left; padding: 10px 14px; border: 1px solid #e2e8f0; font-weight: 600; color: #0f172a; }
+.bp-doc td { padding: 9px 14px; border: 1px solid #e2e8f0; color: #334155; }
+.bp-doc tr:nth-child(even) td { background: #f8fafc; }
+.bp-doc-cta { display: inline-block; background: #1d4ed8; color: #fff; padding: 12px 24px; border-radius: 8px; font-weight: 600; text-decoration: none; margin-top: 1rem; }
+.bp-doc-cta:hover { background: #3b82f6; color: #fff; text-decoration: none; }
+.section-title { text-align: center; margin: 30px 0; }
+.screenshot-title { text-align: center; margin: 30px 0; }
+.bp-doc-toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 24px; margin: 1.5rem 0 2rem; display: inline-block; min-width: 260px; }
+.bp-doc-toc strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-toc ol { margin: 0; padding-left: 1.25rem; }
+.bp-doc-toc li { margin-bottom: 0.3rem; font-size: 0.925rem; }
+.bp-doc-toc a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-toc a:hover { text-decoration: underline; }
+.bp-doc-breadcrumb { font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem; }
+.bp-doc-breadcrumb a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-breadcrumb a:hover { text-decoration: underline; }
+.bp-doc-seealso { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px 24px; margin-top: 2rem; }
+.bp-doc-seealso strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-seealso ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+.bp-doc-seealso li { margin-bottom: 0.35rem; font-size: 0.925rem; }
+.bp-doc-seealso a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-seealso a:hover { text-decoration: underline; }
+.bp-doc-back { font-size: 0.9rem; font-weight: 600; color: #475569; text-decoration: none; }
+.bp-doc-back:hover { color: #1d4ed8; }
+</style>

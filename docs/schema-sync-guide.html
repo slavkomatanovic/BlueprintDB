@@ -1,0 +1,334 @@
+<h2 class="section-title">Schema Sync Guide</h2>
+<article class="bp-doc">
+
+<nav class="bp-doc-breadcrumb">
+  <a href="/">Home</a> &rsaquo; <a href="/tutorials/">Tutorials</a> &rsaquo; Schema Sync Guide
+</nav>
+
+<p class="bp-doc-intro">
+  Keeping a database schema in sync with a specification — across development, staging, and production environments — is one of the more error-prone parts of managing a database-backed application. A column gets added in development but the migration script never runs on staging. A table gets renamed in production without updating the documentation. Schema Sync in BlueprintDB addresses this problem directly: it compares the live structure of any supported database against the Blueprint and generates exactly the changes needed to bring them in line, without touching data and without requiring manual DDL.
+</p>
+
+<nav class="bp-doc-toc">
+  <strong>In this guide</strong>
+  <ol>
+    <li><a href="#what-it-does">What Schema Sync does</a></li>
+    <li><a href="#supported-backends">Supported backends</a></li>
+    <li><a href="#use-cases">Use cases</a></li>
+    <li><a href="#step-by-step">Step-by-step: running a Schema Sync</a></li>
+    <li><a href="#practical-example">Practical example: adding a column to three environments</a></li>
+    <li><a href="#batch-sync">Batch Schema Sync</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<hr>
+
+<h2 id="what-it-does">What Schema Sync does</h2>
+
+<p>Schema Sync performs a structural diff between two things:</p>
+
+<ul>
+  <li><strong>The Blueprint</strong> — the metadata stored in BlueprintDB (tables, columns, types, constraints)</li>
+  <li><strong>The live database</strong> — the actual structure of a connected database at the moment of analysis</li>
+</ul>
+
+<p>The result is a list of differences, each mapped to a DDL operation:</p>
+
+<table>
+  <thead>
+    <tr><th>Difference type</th><th>DDL generated</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Table exists in Blueprint, missing in database</td><td><code>CREATE TABLE</code></td></tr>
+    <tr><td>Column exists in Blueprint, missing in table</td><td><code>ALTER TABLE ... ADD COLUMN</code></td></tr>
+    <tr><td>Column type differs between Blueprint and database</td><td><code>ALTER TABLE ... ALTER COLUMN</code></td></tr>
+    <tr><td>Column nullability differs</td><td><code>ALTER TABLE ... ALTER COLUMN</code></td></tr>
+    <tr><td>Foreign key exists in Blueprint, missing in database</td><td><code>ALTER TABLE ... ADD CONSTRAINT</code></td></tr>
+    <tr><td>Table exists in database, missing in Blueprint</td><td>Reported as extra — not dropped automatically</td></tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <strong>Important:</strong> Schema Sync never drops tables or columns automatically, even if they exist in the live database but not in the Blueprint. Destructive operations require explicit manual action. This is a deliberate safety constraint.
+</blockquote>
+
+<hr>
+
+<h2 id="supported-backends">Supported backends</h2>
+
+<table>
+  <thead>
+    <tr><th>Backend</th><th>Schema Sync</th><th>Tier</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>SQLite</td><td>✓</td><td>Free</td></tr>
+    <tr><td>MS Access (.accdb / .mdb)</td><td>✓</td><td>Free</td></tr>
+    <tr><td>MySQL</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>MariaDB</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>PostgreSQL</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>SQL Server</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>Oracle</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>IBM DB2</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>Firebird</td><td>✓</td><td>Pro</td></tr>
+    <tr><td>dBASE (.dbf)</td><td>✓</td><td>Pro</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2 id="use-cases">Use cases</h2>
+
+<h3>Initial schema creation</h3>
+<p>
+  When starting with an empty target database, Schema Sync creates the entire schema from the Blueprint in a single operation. This is the standard last step after Schema Import in a migration workflow — import from source, then sync to target.
+</p>
+
+<h3>Propagating schema changes across environments</h3>
+<p>
+  After modifying the Blueprint (adding a column, changing a type, adding a relation), run Schema Sync against each environment — dev, staging, production — to apply the same changes everywhere consistently. No migration scripts to write, no risk of environment drift.
+</p>
+
+<h3>Auditing live databases</h3>
+<p>
+  Run Schema Sync in analyse-only mode (without applying) to see whether a live database matches the Blueprint. This is useful for auditing databases that may have been modified outside of the normal workflow.
+</p>
+
+<hr>
+
+<h2 id="step-by-step">Step-by-step: running a Schema Sync</h2>
+
+<h3>1. Ensure your Blueprint is up to date</h3>
+
+<p>
+  Schema Sync uses the Blueprint as the source of truth. Before syncing, confirm that the Blueprint accurately reflects the schema you want in the target database.
+</p>
+
+<p>
+  If you are starting from an existing database, use <strong>Schema Import</strong> first to populate the Blueprint from the live source. If you are adding a new table or column, do it in the <strong>Tables</strong> and <strong>Columns</strong> windows before proceeding.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Columns window showing a recently added column, not yet synced to the live database]</p>
+
+<h3>2. Open Schema Sync</h3>
+
+<p>Click <strong>Schema Sync</strong> in the main menu.</p>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Sync window, empty, backend dropdown and connection fields visible]</p>
+
+<h3>3. Select the backend and connect</h3>
+
+<p>Select the target database engine from the dropdown and fill in the connection details:</p>
+
+<ul>
+  <li><strong>File-based backends (SQLite, Access, dBASE):</strong> browse to the file.</li>
+  <li><strong>Server backends:</strong> enter host, port, database name, username, and password.</li>
+</ul>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Sync, MySQL selected as backend, connection fields filled, Analyse button highlighted]</p>
+
+<h3>4. Analyse</h3>
+
+<p>
+  Click <strong>Analyse</strong>. BlueprintDB connects to the target database, reads its current structure, and compares it against the Blueprint. The diff list populates with all detected differences.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Diff list after Analyse — showing a mix of "Table to be created", "Column to be added", "Column type changed" entries]</p>
+
+<p>Each entry in the list shows:</p>
+
+<ul>
+  <li>The operation type (Create table, Add column, Alter column, Add constraint)</li>
+  <li>The table and column affected</li>
+  <li>The current state in the live database vs. the Blueprint definition</li>
+</ul>
+
+<p>
+  If the diff list is empty, the live database already matches the Blueprint — no changes are needed.
+</p>
+
+<h3>5. Review the diff</h3>
+
+<p>
+  Read through the diff list before applying. Pay particular attention to <em>Alter column</em> entries — changing a column type on a table with existing data can fail if the existing values are not compatible with the new type (e.g. changing <code>VARCHAR</code> to <code>INTEGER</code> on a column that contains text).
+</p>
+
+<p>
+  Tables or columns that exist in the live database but not in the Blueprint are shown as <em>extra</em>. These are reported for information only — Schema Sync will not drop them.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Diff list detail — one "ALTER COLUMN" entry expanded, showing old type vs new type]</p>
+
+<h3>6. Apply</h3>
+
+<p>
+  Click <strong>Apply</strong> to execute the DDL statements. BlueprintDB processes the diff list in dependency order:
+</p>
+
+<ol>
+  <li>Tables with no foreign key dependencies are created first.</li>
+  <li>Tables that reference other tables are created after their dependencies.</li>
+  <li>New columns are added to existing tables.</li>
+  <li>Column alterations are applied.</li>
+  <li>Foreign key constraints are added last, once all referenced tables exist.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Sync in progress, log panel showing DDL statements being executed one by one]</p>
+
+<p>
+  When all statements have been executed, the result is shown per entry — green for success, red for failure with an error message.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Sync complete, all entries green with checkmarks]</p>
+
+<hr>
+
+<h2 id="practical-example">Practical example: adding a column to three environments</h2>
+
+<p>
+  Suppose you add a <code>last_login</code> column of type DateTime to the <code>users</code> table in your Blueprint. You have three environments: development (SQLite), staging (PostgreSQL), and production (PostgreSQL).
+</p>
+
+<ol>
+  <li>Open <strong>Columns</strong>, select the <code>users</code> table, click <strong>New</strong>, add <code>last_login</code> as DateTime, nullable, and save.</li>
+  <li>Open <strong>Schema Sync</strong> → select SQLite → connect to the dev database → Analyse → Apply.<br>
+      BlueprintDB executes: <code>ALTER TABLE users ADD COLUMN last_login TEXT;</code></li>
+  <li>Open <strong>Schema Sync</strong> → select PostgreSQL → connect to staging → Analyse → Apply.<br>
+      BlueprintDB executes: <code>ALTER TABLE users ADD COLUMN last_login TIMESTAMP;</code></li>
+  <li>Open <strong>Schema Sync</strong> → select PostgreSQL → connect to production → Analyse → Apply.<br>
+      Same statement, same result.</li>
+</ol>
+
+<p>
+  The column definition is written once in the Blueprint. The backend-specific DDL is generated automatically for each target engine.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Diff list for the staging environment, showing only "Add column: users.last_login TIMESTAMP"]</p>
+
+<hr>
+
+<h2 id="batch-sync">Batch Schema Sync</h2>
+
+<p>
+  If you maintain a large number of databases with the same schema — for example, one database per client in a SaaS application — BlueprintDB's <strong>Batch Schema Sync</strong> can sync the Blueprint against multiple databases in a single operation.
+</p>
+
+<ol>
+  <li>Open <strong>Batch Schema Sync</strong> from the main menu.</li>
+  <li>Add each target database connection to the list.</li>
+  <li>Click <strong>Run All</strong>. BlueprintDB analyses and applies changes to each database in sequence.</li>
+  <li>The result log shows a summary per database — changes applied, errors, and skipped entries.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Batch Schema Sync window, list of multiple database connections, Run All button]</p>
+
+<p class="screenshot-title">[SCREENSHOT: Batch sync results log, per-database summary with row counts and status]</p>
+
+<hr>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3>Analyse shows no differences, but the live database is clearly out of date</h3>
+<p>
+  Confirm that you are connected to the correct database. Check the database name in the connection form — it is easy to accidentally connect to a different schema or catalog that already matches the Blueprint.
+</p>
+
+<h3>Apply fails with "Cannot alter column — data incompatibility"</h3>
+<p>
+  The target column contains data that is incompatible with the new type defined in the Blueprint (e.g. text values in a column being changed to Integer). Options:
+</p>
+<ul>
+  <li>Clean up the data in the live database first (cast or delete incompatible rows), then re-run Apply.</li>
+  <li>Revert the type change in the Blueprint if the original type was correct.</li>
+  <li>On SQL Server and PostgreSQL, you may need to add an explicit <code>USING</code> clause or <code>CAST</code> — run the ALTER manually with the appropriate cast expression.</li>
+</ul>
+
+<h3>Foreign key constraint fails during Apply</h3>
+<p>
+  The referenced parent table or column does not yet exist in the live database, or it exists with a different type than the foreign key column. Ensure the parent table has been created (check earlier in the diff list for any failed <code>CREATE TABLE</code> entries) and that primary key types match foreign key column types in the Blueprint.
+</p>
+
+<h3>SQLite — "Cannot alter column type"</h3>
+<p>
+  SQLite has limited <code>ALTER TABLE</code> support and does not allow changing column types directly. BlueprintDB handles this by recreating the table: it creates a new table with the updated schema, copies data from the old table, drops the old table, and renames the new one. This operation preserves data but requires that no other database connections are open on the SQLite file during the sync.
+</p>
+
+<h3>Extra tables or columns are not being removed</h3>
+<p>
+  This is expected behaviour. Schema Sync never drops tables or columns automatically. To remove a table from the live database that is not in the Blueprint, execute the <code>DROP TABLE</code> statement manually in your database client after verifying that the data can be safely deleted.
+</p>
+
+<hr>
+
+<h2>Summary</h2>
+
+<p>Schema Sync gives you a single, authoritative definition of your database schema — the Blueprint — and applies it to any connected database on demand. Key points:</p>
+
+<ul>
+  <li>It only <strong>adds and modifies</strong>, never drops — safe to run on databases with live data.</li>
+  <li>DDL is generated in <strong>dependency order</strong> — no manual sorting of migration scripts.</li>
+  <li>The same Blueprint can be synced to <strong>different backend engines</strong> — canonical types are translated automatically.</li>
+  <li><strong>Batch Sync</strong> scales the same workflow to many databases at once.</li>
+</ul>
+
+<p>
+  Used together, Schema Import, Schema Sync, and Transfer Data cover the full database migration and maintenance lifecycle — from reading an existing schema, to deploying it to new environments, to keeping multiple databases in sync over time.
+</p>
+
+<p>
+  <a href="https://github.com/slavkomatanovic/BlueprintDB/releases/latest" class="bp-doc-cta">Download BlueprintDB</a>
+</p>
+
+<hr>
+
+<div class="bp-doc-seealso">
+  <strong>See also</strong>
+  <ul>
+    <li><a href="/schema-import-guide/">How to Import a Database Schema with BlueprintDB</a></li>
+    <li><a href="/mysql-to-postgresql-migration/">How to Migrate from MySQL to PostgreSQL with BlueprintDB</a></li>
+    <li><a href="/access-to-sqlserver-migration/">How to Migrate from Access to SQL Server with BlueprintDB</a></li>
+  </ul>
+  <a href="/tutorials/" class="bp-doc-back">&larr; Back to Tutorials</a>
+</div>
+
+</article>
+
+<style>
+.bp-doc { max-width: 780px; margin: 0 auto; font-size: 1rem; line-height: 1.75; color: #1e293b; }
+.bp-doc-intro { font-size: 1.1rem; color: #334155; }
+.bp-doc h2 { font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; color: #0f172a; }
+.bp-doc h3 { font-size: 1.1rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #1e293b; }
+.bp-doc pre { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; overflow-x: auto; font-size: 0.875rem; }
+.bp-doc code { font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.875rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+.bp-doc pre code { background: none; padding: 0; }
+.bp-doc blockquote { border-left: 4px solid #3b82f6; margin: 1.5rem 0; padding: 12px 20px; background: #eff6ff; border-radius: 0 8px 8px 0; color: #1e40af; }
+.bp-doc blockquote strong { color: #1e3a8a; }
+.bp-doc ul, .bp-doc ol { padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
+.bp-doc li { margin-bottom: 0.4rem; }
+.bp-doc hr { border: none; border-top: 1px solid #e2e8f0; margin: 2.5rem 0; }
+.bp-doc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.875rem; }
+.bp-doc th { background: #f1f5f9; text-align: left; padding: 10px 14px; border: 1px solid #e2e8f0; font-weight: 600; color: #0f172a; }
+.bp-doc td { padding: 9px 14px; border: 1px solid #e2e8f0; color: #334155; }
+.bp-doc tr:nth-child(even) td { background: #f8fafc; }
+.bp-doc-cta { display: inline-block; background: #1d4ed8; color: #fff; padding: 12px 24px; border-radius: 8px; font-weight: 600; text-decoration: none; margin-top: 1rem; }
+.bp-doc-cta:hover { background: #3b82f6; color: #fff; text-decoration: none; }
+.section-title { text-align: center; margin: 30px 0; }
+.screenshot-title { text-align: center; margin: 30px 0; }
+.bp-doc-toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 24px; margin: 1.5rem 0 2rem; display: inline-block; min-width: 260px; }
+.bp-doc-toc strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-toc ol { margin: 0; padding-left: 1.25rem; }
+.bp-doc-toc li { margin-bottom: 0.3rem; font-size: 0.925rem; }
+.bp-doc-toc a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-toc a:hover { text-decoration: underline; }
+.bp-doc-breadcrumb { font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem; }
+.bp-doc-breadcrumb a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-breadcrumb a:hover { text-decoration: underline; }
+.bp-doc-seealso { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px 24px; margin-top: 2rem; }
+.bp-doc-seealso strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-seealso ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+.bp-doc-seealso li { margin-bottom: 0.35rem; font-size: 0.925rem; }
+.bp-doc-seealso a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-seealso a:hover { text-decoration: underline; }
+.bp-doc-back { font-size: 0.9rem; font-weight: 600; color: #475569; text-decoration: none; }
+.bp-doc-back:hover { color: #1d4ed8; }
+</style>

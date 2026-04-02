@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using Blueprint.App.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Blueprint.App;
 
@@ -254,4 +255,52 @@ public partial class MainWindow : Window
     private void MenuTransfer_Click(object sender, RoutedEventArgs e)          => new TransferWindow { Owner = this }.Show();
     private void MenuKonfiguracija_Click(object sender, RoutedEventArgs e)     => OpenSetup();
     private void MenuKraj_Click(object sender, RoutedEventArgs e)              => Application.Current.Shutdown();
+
+    private void MenuResetApp_Click(object sender, RoutedEventArgs e)
+    {
+        var r1 = MyMsgBox.Show("MSG_RESET_CONFIRM1", buttons: MessageBoxButton.YesNo, icon: MessageBoxImage.Warning);
+        if (r1 != MessageBoxResult.Yes) return;
+
+        var r2 = MyMsgBox.Show("MSG_RESET_CONFIRM2", buttons: MessageBoxButton.YesNo, icon: MessageBoxImage.Warning);
+        if (r2 != MessageBoxResult.Yes) return;
+
+        try
+        {
+            using var db = new BlueprintDbContext();
+            db.Tempkolonet2s.RemoveRange(db.Tempkolonet2s);
+            db.Tempkolonet1s.RemoveRange(db.Tempkolonet1s);
+            db.Kolonenoves.RemoveRange(db.Kolonenoves);
+            db.Tabelenoves.RemoveRange(db.Tabelenoves);
+            db.Kolones.RemoveRange(db.Kolones);
+            db.Relacijes.RemoveRange(db.Relacijes);
+            db.Tabeles.RemoveRange(db.Tabeles);
+            db.Promjenanazivatabelas.RemoveRange(db.Promjenanazivatabelas);
+            db.Dokumentis.RemoveRange(db.Dokumentis);
+            db.Poglavljas.RemoveRange(db.Poglavljas);
+            db.Putanjes.RemoveRange(db.Putanjes);
+            db.Parametris.RemoveRange(db.Parametris);
+            db.Logs.RemoveRange(db.Logs);
+            db.Programis.RemoveRange(db.Programis);
+            db.SaveChanges();
+            db.Database.ExecuteSqlRaw("VACUUM;");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("MainWindow", "Reset failed", ex);
+            MyMsgBox.Show(ex.Message, icon: MessageBoxImage.Error);
+            return;
+        }
+
+        AppState.SelectedProgramId   = 0;
+        AppState.SelectedProgramName = "";
+        AppState.BackendDatabasePath = "";
+
+        // Close all child windows before refreshing
+        foreach (var w in Application.Current.Windows.OfType<Window>().Where(w => w != this).ToList())
+            w.Close();
+
+        UpdateStatusBar();
+        Title = "Blueprint";
+        ShowHomeView();
+    }
 }

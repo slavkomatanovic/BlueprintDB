@@ -118,6 +118,13 @@
                                    Foreground="#6366F1"/>
                     </MenuItem.Icon>
                 </MenuItem>
+                <Separator/>
+                <MenuItem Header="Reset Application…" Tag="MENU_RESET_APP" Click="MenuResetApp_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE74D;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#DC2626"/>
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
 
             <!-- Options: Language -->
