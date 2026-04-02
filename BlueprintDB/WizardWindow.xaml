@@ -171,6 +171,12 @@
                                    VerticalAlignment="Center" Margin="9,0,0,0"
                                    Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
                     </Grid>
+
+                    <!-- Import options -->
+                    <CheckBox x:Name="chkImportFks" Tag="CHK_IMPORT_FKS"
+                              Content="Import foreign keys (if supported by backend)"
+                              IsChecked="True" Margin="0,18,0,0"
+                              ToolTip="When checked, foreign key constraints are read from the source database and saved as Relations in Blueprint."/>
                 </StackPanel>
 
                 <!-- Page 3: Import progress (Grid so ListBox can expand) -->

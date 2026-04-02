@@ -46,7 +46,7 @@
 
                 <!-- Backend type selector -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-                    <Label Content="Type:" Padding="0,0,8,0" VerticalAlignment="Center"/>
+                    <Label Content="Type:" Tag="LBL_TIP" Padding="0,0,8,0" VerticalAlignment="Center"/>
                     <ComboBox x:Name="cbBackendType" Width="180" Height="26"
                               SelectionChanged="CbBackendType_SelectionChanged"/>
                 </StackPanel>
@@ -100,7 +100,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="txtFolder" Grid.Column="0" Padding="7,5" FontSize="13"
                              BorderBrush="#D1D5DB" Margin="0,0,6,0"/>
-                    <Button Grid.Column="1" Content="Browse…" Padding="12,5"
+                    <Button Grid.Column="1" Content="Browse…" Tag="CMD_PREGLEDAJ" Padding="12,5"
                             Click="BtnBrowseFolder_Click" Background="#64748B"
                             ToolTip="Select the folder containing dBase (.dbf) files"/>
                 </Grid>

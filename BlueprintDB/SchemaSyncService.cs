@@ -220,6 +220,24 @@ public static class SchemaSyncService
                     var liveFksNow = connector.GetForeignKeys();
                     foreach (var rel in fksToAdd)
                     {
+                        // Verify both tables exist on the backend before attempting to add FK
+                        if (!liveNow.Contains(rel.Tabelal) || !liveNow.Contains(rel.Tabelad))
+                        {
+                            LogService.Warning("SchemaSync",
+                                $"Skipping FK '{rel.Nazivrelacije}': table '{rel.Tabelal}' or '{rel.Tabelad}' not found on backend.");
+                            continue;
+                        }
+
+                        // Verify the FK column exists in the child table
+                        var liveChildCols = connector.GetColumnNames(rel.Tabelad)
+                            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                        if (!liveChildCols.Contains(rel.Polje ?? ""))
+                        {
+                            LogService.Warning("SchemaSync",
+                                $"Skipping FK '{rel.Nazivrelacije}': column '{rel.Polje}' not found in table '{rel.Tabelad}'.");
+                            continue;
+                        }
+
                         if (liveFksNow.Any(fk =>
                             string.Equals(fk.ChildTable,  rel.Tabelad, StringComparison.OrdinalIgnoreCase) &&
                             string.Equals(fk.ChildColumn, rel.Polje,   StringComparison.OrdinalIgnoreCase) &&

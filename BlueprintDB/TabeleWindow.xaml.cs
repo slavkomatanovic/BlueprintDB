@@ -165,6 +165,30 @@ public partial class TabeleWindow : Window
             return;
         }
 
+        // Block deletion if table is referenced in any relation
+        try
+        {
+            using var dbCheck = new BlueprintDbContext();
+            var relations = dbCheck.Relacijes
+                .Where(r => r.Idprograma == _currentProgramId &&
+                            (r.Tabelal == _selected.Nazivtabele || r.Tabelad == _selected.Nazivtabele) &&
+                            r.Skriven != true)
+                .ToList();
+            if (relations.Count > 0)
+            {
+                var relList = string.Join("\n", relations.Select(r =>
+                    $"  • {r.Nazivrelacije ?? $"{r.Tabelad} \u2192 {r.Tabelal}"}"));
+                MyMsgBox.Show(
+                    string.Format(LanguageService.T("MSG_TABELA_POD_RELACIJOM"), _selected.Nazivtabele, relList),
+                    icon: MessageBoxImage.Warning);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("CRUD", "Error checking relations for table", ex);
+        }
+
         var result = MessageBox.Show(
             string.Format(LanguageService.T("MSG_BRISANJE_TABELE"), _selected.Nazivtabele),
             LanguageService.T("MSG_POTVRDA_BRISANJA"),

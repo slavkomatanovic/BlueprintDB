@@ -12,7 +12,9 @@ public partial class TabeleNoveWindow : Window
     private record TabelaNovRow(int Idtabele, int Idprograma, string? Nazivtabele, bool Cijelatabela,
         string? Verzija)
     {
-        public string TipOpis => Cijelatabela ? "Cijela tabela" : "Surplus kolone";
+        public string TipOpis => Cijelatabela
+            ? LanguageService.T("SURPLUS_TIP_CIJELA", "Full table")
+            : LanguageService.T("SURPLUS_TIP_KOLONE", "Surplus columns");
     }
 
     public TabeleNoveWindow()
@@ -49,8 +51,8 @@ public partial class TabeleNoveWindow : Window
     private void UpdateStatus(int count)
     {
         lblStatus.Text = count == 0
-            ? "Nema surplus tabela."
-            : $"{count} surplus unos(a).";
+            ? LanguageService.T("MSG_SURPLUS_NEMA", "No surplus entries.")
+            : string.Format(LanguageService.T("MSG_SURPLUS_COUNT", "{0} surplus entry(s)."), count);
     }
 
     private void DgTabele_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -71,8 +73,8 @@ public partial class TabeleNoveWindow : Window
         }
 
         lblKoloneHeader.Text = row.Cijelatabela
-            ? $"Kolone tabele  '{row.Nazivtabele}'  (cijela tabela je surplus)"
-            : $"Surplus kolone u tabeli  '{row.Nazivtabele}'";
+            ? string.Format(LanguageService.T("SURPLUS_KOLONE_SVE",        "Columns of table \u2018{0}\u2019 (full table is surplus)"), row.Nazivtabele)
+            : string.Format(LanguageService.T("SURPLUS_KOLONE_PARCIJALNO", "Surplus columns in table \u2018{0}\u2019"), row.Nazivtabele);
     }
 
     // ── Izbriši (single) ────────────────────────────────────────────────────
@@ -107,7 +109,7 @@ public partial class TabeleNoveWindow : Window
         {
             if (dgKolone.SelectedItem is not Kolonenove kol)
             {
-                MyMsgBox.Show("Odaberi kolonu u donjoj listi.", icon: MessageBoxImage.Warning);
+                MyMsgBox.Show(LanguageService.T("MSG_ODABERI_KOLONU", "Please select a column from the list below."), icon: MessageBoxImage.Warning);
                 return;
             }
 
@@ -226,7 +228,7 @@ public partial class TabeleNoveWindow : Window
     private void BtnOcistiListu_Click(object sender, RoutedEventArgs e)
     {
         var confirm = MyMsgBox.Show(
-            "Obrisati listu surplus unosa bez brisanja tabela i polja u backend bazi?",
+            LanguageService.T("MSG_OCISTI_SURPLUS_POTVRDA", "Clear the surplus list without dropping tables and columns in the backend database?"),
             icon: MessageBoxImage.Question, buttons: MessageBoxButton.YesNo);
         if (confirm != MessageBoxResult.Yes) return;
 

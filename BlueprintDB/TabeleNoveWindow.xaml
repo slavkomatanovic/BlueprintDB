@@ -1,7 +1,8 @@
 <Window x:Class="Blueprint.App.TabeleNoveWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Surplus — nepotrebne tabele i polja"
+        Tag="FORM_SURPLUS"
+        Title="Surplus"
         Width="920" Height="600"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
@@ -17,7 +18,7 @@
         <!-- Header -->
         <Border Grid.Row="0" Background="#1E293B" Padding="16,10">
             <StackPanel>
-                <TextBlock x:Name="lblTitle" Text="Surplus — nepotrebne tabele i polja"
+                <TextBlock x:Name="lblTitle" Tag="FORM_SURPLUS" Text="Surplus"
                            Foreground="White" FontSize="15" FontWeight="SemiBold"/>
                 <TextBlock x:Name="lblSubtitle" Foreground="#94A3B8" FontSize="11" Margin="0,2,0,0"/>
             </StackPanel>
@@ -34,7 +35,7 @@
             <!-- TabeleNove grid -->
             <Border Grid.Row="0" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Surplus tabele"
+                    <TextBlock DockPanel.Dock="Top" Tag="LBL_SURPLUS_TABELE" Text="Surplus tables"
                                Background="#F1F5F9" Padding="8,4" FontWeight="SemiBold" FontSize="11" Foreground="#475569"/>
                     <DataGrid x:Name="dgTabele"
                               AutoGenerateColumns="False"
@@ -48,9 +49,9 @@
                               RowBackground="White"
                               HeadersVisibility="Column">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Naziv tabele" Binding="{Binding Nazivtabele}" Width="*"/>
-                            <DataGridTextColumn Header="Tip" Binding="{Binding TipOpis}" Width="120"/>
-                            <DataGridTextColumn Header="Verzija" Binding="{Binding Verzija}" Width="80"/>
+                            <DataGridTextColumn Header="[HDR_NAZIV_TABELE]" Binding="{Binding Nazivtabele}" Width="*"/>
+                            <DataGridTextColumn Header="[HDR_TIP]"          Binding="{Binding TipOpis}"    Width="120"/>
+                            <DataGridTextColumn Header="[HDR_VERZIJA]"      Binding="{Binding Verzija}"    Width="80"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
@@ -62,7 +63,7 @@
             <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" x:Name="lblKoloneHeader"
-                               Text="Kolone odabrane tabele"
+                               Tag="LBL_KOLONE_TABELE" Text="Columns of selected table"
                                Background="#F1F5F9" Padding="8,4" FontWeight="SemiBold" FontSize="11" Foreground="#475569"/>
                     <DataGrid x:Name="dgKolone"
                               AutoGenerateColumns="False"
@@ -75,10 +76,10 @@
                               RowBackground="White"
                               HeadersVisibility="Column">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Naziv kolone" Binding="{Binding Nazivkolone}" Width="*"/>
-                            <DataGridTextColumn Header="Tip podatka" Binding="{Binding Tippodatka}" Width="120"/>
-                            <DataGridTextColumn Header="Veličina" Binding="{Binding Fieldsize}" Width="80"/>
-                            <DataGridTextColumn Header="Null" Binding="{Binding Allownull}" Width="60"/>
+                            <DataGridTextColumn Header="[HDR_NAZIV_KOLONE]" Binding="{Binding Nazivkolone}" Width="*"/>
+                            <DataGridTextColumn Header="[HDR_TIP_PODATKA]"  Binding="{Binding Tippodatka}"  Width="120"/>
+                            <DataGridTextColumn Header="[HDR_VELICINA]"     Binding="{Binding Fieldsize}"   Width="80"/>
+                            <DataGridTextColumn Header="[HDR_NULL]"         Binding="{Binding Allownull}"   Width="60"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
@@ -91,20 +92,20 @@
                 <TextBlock x:Name="lblStatus" DockPanel.Dock="Left" VerticalAlignment="Center"
                            Foreground="#64748B" FontSize="11"/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="btnIzbrisi" Content="Izbriši" Width="90" Margin="0,0,6,0"
-                            Click="BtnIzbrisi_Click"
+                    <Button x:Name="btnIzbrisi" Content="Delete" Tag="CMD_IZBRISI"
+                            Width="90" Margin="0,0,6,0" Click="BtnIzbrisi_Click"
                             Background="#DC2626" Foreground="White" BorderThickness="0"
                             Padding="0,6" FontWeight="SemiBold"/>
-                    <Button x:Name="btnIzbrisiSve" Content="Izbriši sve" Width="100" Margin="0,0,6,0"
-                            Click="BtnIzbrisiSve_Click"
+                    <Button x:Name="btnIzbrisiSve" Content="Delete All" Tag="CMD_IZBRISI_SVE"
+                            Width="100" Margin="0,0,6,0" Click="BtnIzbrisiSve_Click"
                             Background="#9333EA" Foreground="White" BorderThickness="0"
                             Padding="0,6" FontWeight="SemiBold"/>
-                    <Button x:Name="btnOcistiListu" Content="Očisti listu" Width="100" Margin="0,0,16,0"
-                            Click="BtnOcistiListu_Click"
+                    <Button x:Name="btnOcistiListu" Content="Clear List" Tag="CMD_OCISTI_LISTU"
+                            Width="100" Margin="0,0,16,0" Click="BtnOcistiListu_Click"
                             Background="#0F172A" Foreground="White" BorderThickness="0"
                             Padding="0,6" FontWeight="SemiBold"/>
-                    <Button x:Name="btnZatvori" Content="Zatvori" Width="80"
-                            Click="BtnZatvori_Click"
+                    <Button x:Name="btnZatvori" Content="Close" Tag="CMD_ZATVORI"
+                            Width="80" Click="BtnZatvori_Click"
                             Background="#475569" Foreground="White" BorderThickness="0"
                             Padding="0,6" FontWeight="SemiBold"/>
                 </StackPanel>

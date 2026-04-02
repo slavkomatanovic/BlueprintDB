@@ -139,12 +139,29 @@ public partial class KoloneWindow : Window
                 var existing = db.Kolones.Find(_selected.Idkolone);
                 if (existing != null)
                 {
+                    var oldName = existing.Nazivkolone;
                     existing.Nazivkolone = txtNazivKolone.Text.Trim();
                     existing.Tippodatka  = tipPodatka.Trim();
                     existing.Fieldsize   = txtFieldsize.Text.Trim();
                     existing.Default     = txtDefault.Text.Trim();
                     existing.Allownull   = allowNull;
                     existing.Key         = chkKey.IsChecked == true;
+
+                    // If column was renamed, update all Relacije records that reference the old name
+                    if (!string.Equals(oldName, existing.Nazivkolone, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var table = db.Tabeles.Find(_tabeleId);
+                        if (table != null)
+                        {
+                            var affected = db.Relacijes
+                                .Where(r => r.Idprograma == table.Idprograma &&
+                                            r.Polje      == oldName           &&
+                                            r.Skriven    != true)
+                                .ToList();
+                            foreach (var rel in affected)
+                                rel.Polje = existing.Nazivkolone;
+                        }
+                    }
                 }
             }
 
@@ -165,6 +182,31 @@ public partial class KoloneWindow : Window
         {
             MyMsgBox.Show("MSG_ODABERI_KOLONU_BRISANJE", icon: MessageBoxImage.Warning);
             return;
+        }
+
+        // Block deletion if column is referenced in any relation
+        try
+        {
+            using var dbCheck = new BlueprintDbContext();
+            var table = dbCheck.Tabeles.Find(_tabeleId);
+            if (table != null)
+            {
+                int relCount = dbCheck.Relacijes.Count(r =>
+                    r.Idprograma == table.Idprograma &&
+                    r.Polje      == _selected.Nazivkolone &&
+                    r.Skriven    != true);
+                if (relCount > 0)
+                {
+                    MyMsgBox.Show(
+                        string.Format(LanguageService.T("MSG_KOLONA_POD_RELACIJOM"), _selected.Nazivkolone, relCount),
+                        icon: MessageBoxImage.Warning);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("CRUD", "Error checking relations for column", ex);
         }
 
         var result = MessageBox.Show(

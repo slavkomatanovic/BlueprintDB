@@ -55,7 +55,7 @@
         </Grid>
 
         <!-- Backend list header -->
-        <TextBlock Grid.Row="1" Text="Backend databases" FontWeight="SemiBold"
+        <TextBlock Grid.Row="1" Tag="LBL_BACKENDS" Text="Backend databases" FontWeight="SemiBold"
                    Margin="0,0,0,3" Foreground="#374151"/>
 
         <!-- Backend file list -->
@@ -84,7 +84,7 @@
         </Grid>
 
         <!-- Results header -->
-        <TextBlock Grid.Row="3" Text="Results" FontWeight="SemiBold"
+        <TextBlock Grid.Row="3" Tag="LBL_REZULTATI" Text="Results" FontWeight="SemiBold"
                    Margin="0,8,0,3" Foreground="#374151"/>
 
         <!-- Results grid -->
@@ -94,13 +94,13 @@
                   RowHeaderWidth="0" CanUserReorderColumns="False"
                   CanUserResizeRows="False" SelectionMode="Single">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Path"    Binding="{Binding Path}"       Width="*"   MinWidth="160"/>
-                <DataGridTextColumn Header="Status"  Binding="{Binding StatusText}"  Width="200" MinWidth="80"/>
-                <DataGridTextColumn Header="+Tables" Binding="{Binding TablesCreated}" Width="65"/>
-                <DataGridTextColumn Header="+Cols"   Binding="{Binding ColumnsAdded}"  Width="55"/>
-                <DataGridTextColumn Header="+FKs"    Binding="{Binding FksAdded}"      Width="50"/>
-                <DataGridTextColumn Header="-Tables" Binding="{Binding TablesDropped}" Width="65"/>
-                <DataGridTextColumn Header="-Cols"   Binding="{Binding ColumnsDropped}" Width="55"/>
+                <DataGridTextColumn Header="[HDR_PATH]"        Binding="{Binding Path}"          Width="*"   MinWidth="160"/>
+                <DataGridTextColumn Header="[HDR_STATUS]"      Binding="{Binding StatusText}"    Width="200" MinWidth="80"/>
+                <DataGridTextColumn Header="[HDR_TABLES_PLUS]" Binding="{Binding TablesCreated}" Width="65"/>
+                <DataGridTextColumn Header="[HDR_COLS_PLUS]"   Binding="{Binding ColumnsAdded}"  Width="55"/>
+                <DataGridTextColumn Header="[HDR_FKS_PLUS]"    Binding="{Binding FksAdded}"      Width="50"/>
+                <DataGridTextColumn Header="[HDR_TABLES_MINUS]" Binding="{Binding TablesDropped}" Width="65"/>
+                <DataGridTextColumn Header="[HDR_COLS_MINUS]"  Binding="{Binding ColumnsDropped}" Width="55"/>
             </DataGrid.Columns>
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">

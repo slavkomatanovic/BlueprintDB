@@ -281,8 +281,10 @@ public partial class WizardWindow : Window
         }
         var version = txtVersion.Text.Trim();
 
-        int tablesAdded  = 0;
-        int columnsAdded = 0;
+        int tablesAdded    = 0;
+        int columnsAdded   = 0;
+        int relationsAdded = 0;
+        bool importFks     = chkImportFks.IsChecked == true;
 
         try
         {
@@ -400,6 +402,39 @@ public partial class WizardWindow : Window
                     }
                     db.SaveChanges();
                 }
+
+                // ── Foreign key import ────────────────────────────────────────
+                if (importFks && connector.SupportsForeignKeys)
+                {
+                    Dispatcher.Invoke(() => Log("Importing foreign keys…"));
+                    var fks = connector.GetForeignKeys();
+                    foreach (var fk in fks)
+                    {
+                        bool exists = db.Relacijes.Any(r =>
+                            r.Idprograma == _programId &&
+                            r.Tabelal    == fk.ChildTable  &&
+                            r.Polje      == fk.ChildColumn &&
+                            r.Skriven    != true);
+                        if (exists) continue;
+
+                        db.Relacijes.Add(new Relacije
+                        {
+                            Idprograma          = _programId,
+                            Tabelal             = fk.ParentTable,
+                            Tabelad             = fk.ChildTable,
+                            Polje               = fk.ChildColumn,
+                            Nazivrelacije       = fk.ConstraintName,
+                            Updatedeletecascade = false,
+                            Korisnik            = Environment.UserName,
+                            Datumupisa          = DateTime.Now,
+                            Skriven             = false,
+                            Vremenskipecat      = (decimal)DateTime.Now.TimeOfDay.TotalSeconds
+                        });
+                        relationsAdded++;
+                    }
+                    db.SaveChanges();
+                    Dispatcher.Invoke(() => Log($"  {relationsAdded} relation(s) imported."));
+                }
             });
 
             // Success
@@ -407,8 +442,9 @@ public partial class WizardWindow : Window
             progressBar.Value  = 100;
             lblImportTitle.Text = "Import complete!";
             lblImportSub.Text   = $"The schema for '{programName}' has been imported successfully.";
-            lblSummary.Text     = $"✓  {tablesAdded} table(s) and {columnsAdded} column(s) added. " +
-                                  "You can now browse the schema in the Tables window.";
+            var relPart = relationsAdded > 0 ? $", {relationsAdded} relation(s)" : "";
+            lblSummary.Text = $"✓  {tablesAdded} table(s), {columnsAdded} column(s){relPart} added. " +
+                              "You can now browse the schema in the Tables and Relations windows.";
             pnlSummary.Visibility = Visibility.Visible;
 
             AppState.SelectedProgramId   = _programId;
@@ -445,6 +481,7 @@ public partial class WizardWindow : Window
         if (tableIds.Count > 0)
             db.Kolones.RemoveRange(db.Kolones.Where(k => tableIds.Contains(k.Idtabele)));
         db.Tabeles.RemoveRange(db.Tabeles.Where(t => t.Idprograma == programId));
+        db.Relacijes.RemoveRange(db.Relacijes.Where(r => r.Idprograma == programId));
         db.SaveChanges();
     }
 

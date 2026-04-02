@@ -150,6 +150,90 @@ public static class DbSeeder
         ("MSG_ODABERI_BAZU_IMPORT","Please select a backend database in Setup first."),
         ("Blueprint",              "Blueprint"),
 
+        // ── RelacijeWindow ────────────────────────────────────────────────────
+        ("FORM_RELACIJE",          "Relations"),
+        ("HDR_TABELA_L",           "Table L"),
+        ("HDR_TABELA_D",           "Table D"),
+        ("HDR_POLJE",              "Field"),
+        ("HDR_NAZIV_RELACIJE",     "Relation name"),
+        ("HDR_CASCADE",            "Cascade"),
+        ("LBL_TABELA_L",           "Table L:"),
+        ("LBL_TABELA_D",           "Table D:"),
+        ("LBL_POLJE",              "Field:"),
+        ("LBL_NAZIV_RELACIJE",     "Name:"),
+        ("LBL_CASCADE",            "Cascade:"),
+        ("CMD_SREDI",              "Auto-name"),
+
+        // ── BatchSchemaSyncWindow ─────────────────────────────────────────────
+        ("FORM_BATCH_SYNC",        "Batch Schema Sync"),
+        ("LBL_BACKENDS",           "Backend databases"),
+        ("LBL_REZULTATI",          "Results"),
+        ("HDR_PATH",               "Path"),
+        ("HDR_STATUS",             "Status"),
+        ("HDR_TABLES_PLUS",        "+Tables"),
+        ("HDR_COLS_PLUS",          "+Cols"),
+        ("HDR_FKS_PLUS",           "+FKs"),
+        ("HDR_TABLES_MINUS",       "-Tables"),
+        ("HDR_COLS_MINUS",         "-Cols"),
+        ("CMD_DODAJ_FAJLOVE",      "Add Files\u2026"),
+        ("CMD_UKLONI",             "Remove"),
+        ("CMD_SYNC_SVE",           "Sync All"),
+
+        // ── MatrixImportWindow ────────────────────────────────────────────────
+        ("FORM_MATRIX_IMPORT",     "Matrix Import"),
+        ("GRP_MATRIX_FOLDER",      "Matrix export folder"),
+        ("GRP_PREVIEW",            "Preview"),
+        ("GRP_CONFLICT",           "If program/table/column already exists"),
+        ("LBL_PROGRAMS",           "Programs"),
+        ("LBL_TABLES",             "Tables"),
+        ("LBL_COLUMNS",            "Columns"),
+        ("BTN_BROWSE",             "Browse\u2026"),
+        ("BTN_PREVIEW",            "Preview"),
+        ("BTN_IMPORT",             "Import"),
+        ("BTN_CLOSE",              "Close"),
+        ("RB_SKIP",                "Skip (keep existing)"),
+        ("RB_OVERWRITE",           "Overwrite (update names)"),
+
+        // ── PromjenaNazivaWindow ──────────────────────────────────────────────
+        ("FORM_PROMJENA_NAZIVA",   "Rename Tables"),
+        ("HDR_STARI_NAZIV",        "Old name"),
+        ("HDR_NOVI_NAZIV",         "New name"),
+        ("LBL_STARI_NAZIV",        "Old name:"),
+        ("LBL_NOVI_NAZIV",         "New name:"),
+
+        // ── MainWindow additional menu items ──────────────────────────────────
+        ("MENU_BATCH_SYNC",        "Batch Schema Sync\u2026"),
+        ("MENU_MATRIX_IMPORT",     "Matrix Import\u2026"),
+        ("MENU_HELP_TOPICS",       "Help Topics"),
+        ("MENU_ABOUT",             "About Blueprint\u2026"),
+
+        // ── LogWindow ─────────────────────────────────────────────────────────
+        ("CMD_LOG_KOPIRAJ",        "Copy"),
+
+        // ── TabeleNoveWindow (Surplus) ─────────────────────────────────────────
+        ("FORM_SURPLUS",               "Surplus"),
+        ("LBL_SURPLUS_TABELE",         "Surplus tables"),
+        ("LBL_KOLONE_TABELE",          "Columns of selected table"),
+        ("HDR_TIP",                    "Type"),
+        ("CMD_IZBRISI",                "Delete"),
+        ("CMD_IZBRISI_SVE",            "Delete All"),
+        ("CMD_OCISTI_LISTU",           "Clear List"),
+        ("SURPLUS_TIP_CIJELA",         "Full table"),
+        ("SURPLUS_TIP_KOLONE",         "Surplus columns"),
+        ("SURPLUS_KOLONE_SVE",         "Columns of table \u2018{0}\u2019 (full table is surplus)"),
+        ("SURPLUS_KOLONE_PARCIJALNO",  "Surplus columns in table \u2018{0}\u2019"),
+        ("MSG_SURPLUS_NEMA",           "No surplus entries."),
+        ("MSG_SURPLUS_COUNT",          "{0} surplus entry(s)."),
+        ("MSG_ODABERI_KOLONU",         "Please select a column from the list below."),
+        ("MSG_OCISTI_SURPLUS_POTVRDA", "Clear the surplus list without dropping tables and columns in the backend database?"),
+        ("MSG_ODABERI_POLJE_RELACIJE", "Please select a field (column) for the relation."),
+        ("MSG_KOLONA_POD_RELACIJOM",  "Column '{0}' is referenced in {1} relation(s) and cannot be deleted.\nRemove the relation(s) in the Relations window first."),
+        ("MSG_TABELA_POD_RELACIJOM",  "Table '{0}' has relations defined. Delete the relations first, then delete the table.\n\nRelations:\n{1}"),
+
+        // ── KonfiguracijaWindow ───────────────────────────────────────────────
+        ("LBL_TIP",                "Type:"),
+        ("CHK_IMPORT_FKS",         "Import foreign keys (if supported by backend)"),
+
         // ── License ───────────────────────────────────────────────────────────
         ("MENU_LICENSE",           "License"),
 

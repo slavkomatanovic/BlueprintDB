@@ -152,6 +152,12 @@ public partial class RelacijeWindow : Window
             return;
         }
 
+        if (cbPolje.SelectedItem is not string polje || string.IsNullOrWhiteSpace(polje))
+        {
+            MyMsgBox.Show("MSG_ODABERI_POLJE_RELACIJE", icon: MessageBoxImage.Warning);
+            return;
+        }
+
         try
         {
             using var db = new BlueprintDbContext();

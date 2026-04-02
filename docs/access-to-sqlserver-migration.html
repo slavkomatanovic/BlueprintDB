@@ -1,0 +1,325 @@
+<h2 class="section-title">Access to SqlServer Migration</h2>
+<article class="bp-doc">
+
+<nav class="bp-doc-breadcrumb">
+  <a href="/">Home</a> &rsaquo; <a href="/tutorials/">Tutorials</a> &rsaquo; Access to SQL Server Migration
+</nav>
+
+<p class="bp-doc-intro">
+  Microsoft Access is a practical starting point for small business databases, but it has hard limits: file size capped at 2 GB, no concurrent write support, and no network-ready server process. SQL Server removes all of these constraints and adds transactions, row-level locking, and enterprise security. This guide covers the full migration path — schema and data — from an Access .accdb file to a SQL Server database using BlueprintDB.
+</p>
+
+<nav class="bp-doc-toc">
+  <strong>In this guide</strong>
+  <ol>
+    <li><a href="#prerequisites">Prerequisites</a></li>
+    <li><a href="#step-1">Create a Program in BlueprintDB</a></li>
+    <li><a href="#step-2">Import the Access Schema</a></li>
+    <li><a href="#step-3">Review Relations</a></li>
+    <li><a href="#step-4">Sync the Schema to SQL Server</a></li>
+    <li><a href="#step-5">Transfer the Data</a></li>
+    <li><a href="#step-6">Reset Identity Columns</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<hr>
+
+<h2 id="prerequisites">Prerequisites</h2>
+
+<ul>
+  <li>BlueprintDB Pro installed (SQL Server backend requires a Pro license; Access is available on the Free tier)</li>
+  <li>The source Access database file (<code>.accdb</code> or <code>.mdb</code>) accessible from the machine running BlueprintDB</li>
+  <li>SQL Server instance reachable from BlueprintDB (Express edition is sufficient)</li>
+  <li>An empty target database created in SQL Server:
+    <pre><code>CREATE DATABASE MyApp;</code></pre>
+  </li>
+  <li>A SQL Server login with <code>db_owner</code> rights on the target database, or at minimum <code>CREATE TABLE</code> and <code>INSERT</code> permissions</li>
+</ul>
+
+<blockquote>
+  <strong>Access driver note:</strong> BlueprintDB connects to Access via the Microsoft ACE OLEDB driver. If you see a connection error on a 64-bit system, install the <em>Microsoft Access Database Engine 2016 Redistributable (64-bit)</em> from the Microsoft Download Center.
+</blockquote>
+
+<hr>
+
+<h2 id="step-1">Step 1 — Create a Program in BlueprintDB</h2>
+
+<p>
+  A Program in BlueprintDB is a named metadata container — it holds the tables, columns, and relations that describe one logical database. Create one before importing anything.
+</p>
+
+<ol>
+  <li>Open BlueprintDB and click <strong>Programs</strong> in the main menu.</li>
+  <li>Click <strong>New</strong>, name the Program (e.g. <em>MyApp — Access Source</em>), and click <strong>Save</strong>.</li>
+</ol>
+<p class="screenshot-title">[SCREENSHOT: Programs window, new program row selected and saved]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Programs-window-new-program-row-selected-and-saved.png" 
+     alt="Programs window, new program row selected and saved"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+<hr>
+
+<h2 id="step-2">Step 2 — Import the Access Schema</h2>
+
+<p>
+  Schema Import reads the structure of the Access database and populates the Blueprint automatically. It captures table names, column names, data types, field sizes, required flags (NOT NULL), and primary keys.
+</p>
+
+<ol>
+  <li>Click <strong>Schema Import</strong> in the main menu.</li>
+  <li>At the bottom of the window, select from the combo box <strong>Existing Program</strong> the name of the program you have created in the previous step (MyApp — Access Source).</li>
+  <li>Press Next.</li>
+  <li>Select <strong>MS Access</strong> as the backend.</li>
+  <li>Click the folder icon next to the file path field and browse to your <code>.accdb</code> file.</li>
+  <li>Click <strong>Next</strong>. BlueprintDB imports all tables in the file, excluding system tables (<code>MSys*</code>).</li>
+</ol>
+<p class="screenshot-title">[SCREENSHOT: Schema Import window, MS Access selected, file path filled]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Schema-Import-window-MS-Access-selected-file-path-filled.png" 
+     alt="Schema Import window, MS Access selected, file path filled"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+
+<p>
+  After import, open the <strong>Tables</strong> and <strong>Columns</strong> windows to verify the result.
+</p>
+<p class="screenshot-title">[SCREENSHOT: Columns window for one imported table, showing column names and mapped types]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Columns-window-for-one-imported-table-showing-column-names-and-mapped-types.png" 
+     alt="Columns window for one imported table, showing column names and mapped types"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+
+<h3>Access to SQL Server type mapping</h3>
+
+<p>BlueprintDB maps Access field types to its canonical type system, which is then translated to SQL Server types during Schema Sync:</p>
+
+<table>
+  <thead>
+    <tr><th>Access type</th><th>Canonical type</th><th>SQL Server type</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Short Text / Text</td><td>String</td><td>NVARCHAR(n)</td></tr>
+    <tr><td>Long Text / Memo</td><td>LongText</td><td>NVARCHAR(MAX)</td></tr>
+    <tr><td>Number (Integer)</td><td>Integer</td><td>INT</td></tr>
+    <tr><td>Number (Long Integer)</td><td>Integer</td><td>BIGINT</td></tr>
+    <tr><td>Number (Double)</td><td>Float</td><td>FLOAT</td></tr>
+    <tr><td>Currency</td><td>Decimal</td><td>NUMERIC(19,4)</td></tr>
+    <tr><td>Yes/No</td><td>Boolean</td><td>BIT</td></tr>
+    <tr><td>Date/Time</td><td>DateTime</td><td>DATETIME2</td></tr>
+    <tr><td>AutoNumber</td><td>Integer (PK, Identity)</td><td>INT IDENTITY(1,1)</td></tr>
+    <tr><td>OLE Object / Attachment</td><td>Binary</td><td>VARBINARY(MAX)</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Review the mapped types in the Columns window after import. If any column shows an unexpected type, click the column row, adjust the type, and save before proceeding.
+</p>
+
+<hr>
+
+<h2 id="step-3">Step 3 — Review Relations</h2>
+
+<p>
+  Access supports relationships defined in the Relationships view. BlueprintDB imports these as entries in the <strong>Relations</strong> window, which will be created as <code>FOREIGN KEY</code> constraints in SQL Server.
+</p>
+
+<ol>
+  <li>Click <strong>Relations</strong> in the main menu.</li>
+  <li>Verify that all expected foreign key relationships are listed.</li>
+  <li>If a relation is missing, click <strong>New</strong> and define it manually (parent table, child table, linked columns).</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Relations window showing imported foreign key relationships between tables]</p>
+
+<blockquote>
+  <strong>Access quirk:</strong> Relationships defined with "Enforce Referential Integrity" in Access are imported as foreign keys. Relationships without that flag are informational only and may not appear in BlueprintDB's Relations list. Add them manually if needed.
+</blockquote>
+
+<hr>
+
+<h2 id="step-4">Step 4 — Sync the Schema to SQL Server</h2>
+
+<p>
+  Schema Sync generates and executes the DDL needed to create all tables, columns, constraints, and indexes in the target SQL Server database.
+</p>
+
+<ol>
+  <li>Click <strong>Schema Sync</strong> in the main menu.</li>
+  <li>Select <strong>SQL Server</strong> as the backend.</li>
+  <li>
+    Enter the connection details:
+    <ul>
+      <li><strong>Server</strong> — hostname or IP, optionally with instance name (e.g. <code>192.168.1.10\SQLEXPRESS</code>)</li>
+      <li><strong>Database</strong> — the empty target database name</li>
+      <li><strong>Authentication</strong> — SQL Server login or Windows Authentication</li>
+    </ul>
+  </li>
+  <li>Click <strong>Analyse</strong>. On an empty database, all Blueprint tables appear as <em>missing</em>.</li>
+  <li>Click <strong>Apply</strong> to create the schema.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Sync, SQL Server selected, diff list showing all tables marked for creation, Apply Changes button]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Schema-Sync-SQL-Server-selected-diff-list-showing-all-tables-marked-for-creation-Apply-button.png" 
+     alt="Schema Sync, SQL Server selected, diff list showing all tables marked for creation, Apply Changes button"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+<p>
+  BlueprintDB creates tables in dependency order — parent tables before child tables — so foreign key constraints are applied without errors.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Schema Sync success screen, all items green]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Schema-Sync-success-screen-all-items-green.png" 
+     alt="Schema Sync success screen, all items green"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+
+<hr>
+
+<h2 id="step-5">Step 5 — Transfer the Data</h2>
+
+<p>
+  With the schema ready in SQL Server, use the Transfer Data Wizard to copy all rows from Access.
+</p>
+
+<ol>
+  <li>Click <strong>Transfer Data</strong> in the main menu.</li>
+  <li>Set the <strong>source</strong>: backend = <strong>MS Access</strong>, file path = your <code>.accdb</code> file.</li>
+  <li>Set the <strong>destination</strong>: backend = <strong>SQL Server</strong>, enter the same connection details as Step 4.</li>
+  <li>Click <strong>Next</strong>, select all tables, and click <strong>Start Transfer</strong>.</li>
+</ol>
+
+<p class="screenshot-title">[SCREENSHOT: Transfer Data Wizard, source Access and destination SQL Server configured, all tables selected]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Transfer-Data-Wizard-source-Access-and-destination-SQL-Server-configured-all-tables-selected.png" 
+     alt="Transfer Data Wizard, source Access and destination SQL Server configured, all tables selected"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+
+
+<p>
+  The wizard inserts rows in batches. The log panel shows progress per table — table name, rows transferred, and elapsed time.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Transfer log panel mid-transfer, showing per-table row counts and progress]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Transfer-log-panel-mid-transfer-showing-per-table-row-counts-and-progress.png" 
+     alt="Transfer log panel mid-transfer, showing per-table row counts and progress"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+<p>
+  When finished, a summary screen shows the total tables and rows transferred.
+</p>
+
+<p class="screenshot-title">[SCREENSHOT: Transfer complete, summary showing tables processed, total rows, 0 errors]</p>
+<img src="http://blueprintdb.io/wp-content/uploads/2026/04/Transfer-complete-summary-showing-tables-processed-total-rows-0-errors.png" 
+     alt="Transfer complete, summary showing tables processed, total rows, 0 errors"
+     style="display:block; margin:20px auto; max-width:100%; height:auto;">
+<hr>
+
+<h2 id="step-6">Step 6 — Reset Identity Columns</h2>
+
+<p>
+  SQL Server <code>IDENTITY</code> columns start at 1 by default and do not auto-adjust after a bulk insert. After the transfer, reseed each identity column to avoid primary key conflicts when the application inserts new rows:
+</p>
+
+<pre><code>-- Replace 'Orders' and 'OrderID' with your actual table and column names
+DBCC CHECKIDENT ('Orders', RESEED, (SELECT MAX(OrderID) FROM Orders));
+</code></pre>
+
+<p>Run this statement for every table with an <code>IDENTITY</code> column. The BlueprintDB Schema Sync log lists which columns were created with <code>IDENTITY</code>.</p>
+
+<hr>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3>Cannot connect to Access — "Could not find installable ISAM"</h3>
+<p>
+  The ACE OLEDB driver is missing or is 32-bit while BlueprintDB is running as 64-bit. Download and install the <em>Microsoft Access Database Engine 2016 Redistributable (x64)</em>.
+</p>
+
+<h3>Schema Sync — "There is already an object named X in the database"</h3>
+<p>
+  The target SQL Server database is not empty. Drop the conflicting tables or point Schema Sync at a fresh empty database.
+</p>
+
+<h3>Transfer fails with "String or binary data would be truncated"</h3>
+<p>
+  A text value in Access is longer than the column length defined in the Blueprint. Open the Columns window, find the affected column, and increase its length (or change the type to LongText → <code>NVARCHAR(MAX)</code>). Re-run Schema Sync (it will <code>ALTER</code> the column) and then re-run the Transfer.
+</p>
+
+<h3>Yes/No columns arrive as 0 / -1 instead of 0 / 1</h3>
+<p>
+  Access stores <code>Yes</code> as <code>-1</code> internally. BlueprintDB normalises this to <code>1</code> during transfer. If you see <code>-1</code> in SQL Server, the column type in the Blueprint was not set to Boolean — it was transferred as a raw integer. Fix the column type in the Blueprint, drop and recreate the column via Schema Sync, and re-transfer that table.
+</p>
+
+<hr>
+
+<h2>Summary</h2>
+
+<p>Moving from Access to SQL Server with BlueprintDB follows four steps:</p>
+
+<ol>
+  <li><strong>Schema Import</strong> — reads the Access schema with type mapping applied automatically.</li>
+  <li><strong>Review</strong> — verify types and relations before syncing.</li>
+  <li><strong>Schema Sync</strong> — creates tables, columns, and foreign keys in SQL Server.</li>
+  <li><strong>Transfer Data</strong> — copies all rows from Access to SQL Server.</li>
+</ol>
+
+<p>
+  The same workflow supports all backend combinations available in BlueprintDB Pro. Once you have a Blueprint of your schema, you can sync it to any supported engine at any time — making BlueprintDB useful not just for one-time migrations, but for maintaining schema consistency across multiple environments.
+</p>
+
+<p>
+  <a href="https://github.com/slavkomatanovic/BlueprintDB/releases/latest" class="bp-doc-cta">Download BlueprintDB</a>
+</p>
+
+<hr>
+
+<div class="bp-doc-seealso">
+  <strong>See also</strong>
+  <ul>
+    <li><a href="/mysql-to-postgresql-migration/">How to Migrate from MySQL to PostgreSQL with BlueprintDB</a></li>
+    <li><a href="/schema-import-guide/">How to Import a Database Schema with BlueprintDB</a></li>
+    <li><a href="/schema-sync-guide/">How to Sync a Database Schema with BlueprintDB</a></li>
+  </ul>
+  <a href="/tutorials/" class="bp-doc-back">&larr; Back to Tutorials</a>
+</div>
+
+</article>
+
+<style>
+.bp-doc { max-width: 780px; margin: 0 auto; font-size: 1rem; line-height: 1.75; color: #1e293b; }
+.bp-doc-intro { font-size: 1.1rem; color: #334155; }
+.bp-doc h2 { font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; color: #0f172a; }
+.bp-doc h3 { font-size: 1.1rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #1e293b; }
+.bp-doc pre { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; overflow-x: auto; font-size: 0.875rem; }
+.bp-doc code { font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.875rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+.bp-doc pre code { background: none; padding: 0; }
+.bp-doc blockquote { border-left: 4px solid #3b82f6; margin: 1.5rem 0; padding: 12px 20px; background: #eff6ff; border-radius: 0 8px 8px 0; color: #1e40af; }
+.bp-doc blockquote strong { color: #1e3a8a; }
+.bp-doc ul, .bp-doc ol { padding-left: 1.5rem; margin: 0.75rem 0 1rem; }
+.bp-doc li { margin-bottom: 0.4rem; }
+.bp-doc hr { border: none; border-top: 1px solid #e2e8f0; margin: 2.5rem 0; }
+.bp-doc table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.9rem; }
+.bp-doc th { background: #f1f5f9; text-align: left; padding: 10px 14px; border: 1px solid #e2e8f0; font-weight: 600; color: #0f172a; }
+.bp-doc td { padding: 9px 14px; border: 1px solid #e2e8f0; color: #334155; }
+.bp-doc tr:nth-child(even) td { background: #f8fafc; }
+.bp-doc-cta { display: inline-block; background: #1d4ed8; color: #fff; padding: 12px 24px; border-radius: 8px; font-weight: 600; text-decoration: none; margin-top: 1rem; }
+.bp-doc-cta:hover { background: #3b82f6; color: #fff; text-decoration: none; }
+.section-title {
+  text-align: center;
+  margin: 30px 0;
+}
+.screenshot-title {
+  text-align: center;
+  margin: 30px 0;
+}
+.bp-doc-toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 24px; margin: 1.5rem 0 2rem; display: inline-block; min-width: 260px; }
+.bp-doc-toc strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-toc ol { margin: 0; padding-left: 1.25rem; }
+.bp-doc-toc li { margin-bottom: 0.3rem; font-size: 0.925rem; }
+.bp-doc-toc a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-toc a:hover { text-decoration: underline; }
+.bp-doc-breadcrumb { font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem; }
+.bp-doc-breadcrumb a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-breadcrumb a:hover { text-decoration: underline; }
+.bp-doc-seealso { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px 24px; margin-top: 2rem; }
+.bp-doc-seealso strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 10px; }
+.bp-doc-seealso ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+.bp-doc-seealso li { margin-bottom: 0.35rem; font-size: 0.925rem; }
+.bp-doc-seealso a { color: #1d4ed8; text-decoration: none; }
+.bp-doc-seealso a:hover { text-decoration: underline; }
+.bp-doc-back { font-size: 0.9rem; font-weight: 600; color: #475569; text-decoration: none; }
+.bp-doc-back:hover { color: #1d4ed8; }
+</style>
