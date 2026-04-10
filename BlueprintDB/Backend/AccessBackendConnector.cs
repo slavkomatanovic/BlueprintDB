@@ -307,11 +307,46 @@ public sealed class AccessBackendConnector : IBackendConnector
     public void AddForeignKey(string constraintName, string childTable, string childColumn,
                               string parentTable, string parentColumn, bool cascade)
     {
+        // Access requires the child column to be indexed before a FK constraint can be defined.
+        // If the column was just added via ADD COLUMN it won't have an index yet.
+        EnsureColumnIndexed(childTable, childColumn);
+
         // Access Jet SQL doesn't support ON DELETE/UPDATE CASCADE via DDL
         using var cmd = new OleDbCommand(
             $"ALTER TABLE [{childTable}] ADD CONSTRAINT [{constraintName}] " +
             $"FOREIGN KEY ([{childColumn}]) REFERENCES [{parentTable}]([{parentColumn}])", _conn);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Creates a non-unique index on the column if it doesn't already have one.
+    /// Access throws "Invalid field definition" when adding a FK on an unindexed column.
+    /// </summary>
+    private void EnsureColumnIndexed(string tableName, string columnName)
+    {
+        try
+        {
+            var indexSchema = _conn.GetOleDbSchemaTable(
+                OleDbSchemaGuid.Indexes, new object?[] { null, null, null, null, tableName });
+            if (indexSchema != null)
+            {
+                foreach (DataRow row in indexSchema.Rows)
+                {
+                    if (string.Equals(row["COLUMN_NAME"]?.ToString(), columnName,
+                            StringComparison.OrdinalIgnoreCase))
+                        return; // already indexed
+                }
+            }
+
+            var idxName = $"IX_{tableName}_{columnName}";
+            using var cmd = new OleDbCommand(
+                $"CREATE INDEX [{idxName}] ON [{tableName}] ([{columnName}])", _conn);
+            cmd.ExecuteNonQuery();
+        }
+        catch
+        {
+            // Ignore — if index creation fails the FK DDL will throw with the original error
+        }
     }
 
     // OleDb ne podržava automatsku konverziju tipova via AddWithValue —

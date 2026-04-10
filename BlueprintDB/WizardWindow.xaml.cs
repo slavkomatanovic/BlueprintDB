@@ -284,7 +284,8 @@ public partial class WizardWindow : Window
         int tablesAdded    = 0;
         int columnsAdded   = 0;
         int relationsAdded = 0;
-        bool importFks     = chkImportFks.IsChecked == true;
+        bool importFks          = chkImportFks.IsChecked == true;
+        bool importSystemTables = chkImportSystemTables.IsChecked == true;
 
         try
         {
@@ -306,7 +307,10 @@ public partial class WizardWindow : Window
                 using var connector = BackendConnectorFactory.Create(cs, backendType);
                 connector.Open();
 
-                var tableNames = connector.GetTableNames();
+                var allTableNames = connector.GetTableNames();
+                var tableNames = importSystemTables
+                    ? allTableNames
+                    : allTableNames.Where(t => !t.StartsWith("MSys", StringComparison.OrdinalIgnoreCase)).ToList();
                 int total = tableNames.Count;
                 int done  = 0;
 
@@ -410,6 +414,11 @@ public partial class WizardWindow : Window
                     var fks = connector.GetForeignKeys();
                     foreach (var fk in fks)
                     {
+                        // Skip relations involving system tables unless explicitly requested
+                        if (!importSystemTables &&
+                            (fk.ParentTable.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) ||
+                             fk.ChildTable.StartsWith("MSys",  StringComparison.OrdinalIgnoreCase)))
+                            continue;
                         bool exists = db.Relacijes.Any(r =>
                             r.Idprograma == _programId &&
                             r.Tabelal    == fk.ChildTable  &&

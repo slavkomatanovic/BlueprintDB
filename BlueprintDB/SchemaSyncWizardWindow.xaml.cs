@@ -20,6 +20,7 @@ public partial class SchemaSyncWizardWindow : Window
     private readonly List<Models.Relacije>                                          _fksToAdd        = [];
     private readonly List<string>                                                   _surplusTables   = [];
     private readonly List<(string TableName, string ColumnName)>                   _surplusColumns  = [];
+    private int _warningCount = 0; // type mismatches that need manual intervention
 
     public SchemaSyncWizardWindow()
     {
@@ -263,6 +264,7 @@ public partial class SchemaSyncWizardWindow : Window
         _fksToAdd.Clear();
         _surplusTables.Clear();
         _surplusColumns.Clear();
+        _warningCount = 0;
 
         var cs = GetConnectionString();
 
@@ -317,11 +319,13 @@ public partial class SchemaSyncWizardWindow : Window
                 }
 
                 // For tables that exist in both — find columns missing from live → ADD COLUMN
+                // Also detect type mismatches (e.g. AutoNumber vs Number) for manual-fix warning
                 foreach (var bpTable in bpTables.Where(t => liveNames.Contains(t.Nazivtabele!)))
                 {
-                    var liveColNames = connector.GetColumnNames(bpTable.Nazivtabele!)
-                        .ToList();
+                    var liveColSchema   = connector.GetColumnSchema(bpTable.Nazivtabele!);
+                    var liveColNames    = liveColSchema.Select(c => c.Name).ToList();
                     var liveColNamesSet = liveColNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var liveSchemaDict  = liveColSchema.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
 
                     var bpCols = db.Kolones
                         .Where(k => k.Idtabele == bpTable.Idtabele && k.Skriven != true)
@@ -346,6 +350,26 @@ public partial class SchemaSyncWizardWindow : Window
                             AddDiffItem($"[+] ADD COLUMN: {bpTable.Nazivtabele}.{bpCol.Nazivkolone}{typeStr}",
                                         Brushes.SeaGreen);
                         });
+                    }
+
+                    // Detect AutoNumber type mismatch on existing columns — Access cannot ALTER to AUTOINCREMENT
+                    foreach (var bpCol in bpCols.Where(k => liveColNamesSet.Contains(k.Nazivkolone!)))
+                    {
+                        if (!TypeMappings.IsAutoNumberType(bpCol.Tippodatka)) continue;
+                        if (!liveSchemaDict.TryGetValue(bpCol.Nazivkolone!, out var liveCol)) continue;
+                        if (TypeMappings.IsAutoNumberType(liveCol.SqlType)) continue;
+
+                        // Blueprint says AutoNumber but live column is a plain number type
+                        _warningCount++;
+                        LogService.Warning("SchemaSync",
+                            $"AutoNumber mismatch: {bpTable.Nazivtabele}.{bpCol.Nazivkolone} " +
+                            $"is {liveCol.SqlType} in backend but AutoNumber in Blueprint. Cannot auto-fix.");
+                        Dispatcher.Invoke(() =>
+                            AddDiffItem(
+                                $"[!] TYPE MISMATCH: {bpTable.Nazivtabele}.{bpCol.Nazivkolone}" +
+                                $"  (Blueprint: AutoNumber, Backend: {liveCol.SqlType})" +
+                                $"  — delete and recreate the table to fix.",
+                                Brushes.DarkOrange));
                     }
 
                     // Kolone koje su EXTRA u live (surplus — ne u Blueprint)
@@ -454,14 +478,22 @@ public partial class SchemaSyncWizardWindow : Window
                 }
             });
 
-            bool hasDiffs = _tablesToCreate.Count > 0 || _columnsToAdd.Count > 0 || _fksToAdd.Count > 0;
+            bool hasDiffs   = _tablesToCreate.Count > 0 || _columnsToAdd.Count > 0 || _fksToAdd.Count > 0;
             bool hasSurplus = AppState.BrisiNepotrebno && (_surplusTables.Count > 0 || _surplusColumns.Count > 0);
 
             if (!hasDiffs && !hasSurplus)
             {
-                lblSyncTitle.Text = "Schema is up to date";
-                lblSyncSub.Text   = "No differences found. Live database matches Blueprint schema.";
-                AddDiffItem("✓  Live database is already in sync with Blueprint.", Brushes.SeaGreen);
+                if (_warningCount > 0)
+                {
+                    lblSyncTitle.Text = "Manual action required";
+                    lblSyncSub.Text   = $"{_warningCount} type mismatch(es) found that cannot be auto-fixed. See warnings above.";
+                }
+                else
+                {
+                    lblSyncTitle.Text = "Schema is up to date";
+                    lblSyncSub.Text   = "No differences found. Live database matches Blueprint schema.";
+                    AddDiffItem("✓  Live database is already in sync with Blueprint.", Brushes.SeaGreen);
+                }
                 btnNext.Content   = "Finish";
                 btnNext.IsEnabled = true;
             }
@@ -477,6 +509,8 @@ public partial class SchemaSyncWizardWindow : Window
                     if (_surplusTables.Count > 0)  parts.Add($"{_surplusTables.Count} surplus table(s) to drop");
                     if (_surplusColumns.Count > 0) parts.Add($"{_surplusColumns.Count} surplus column(s) to drop");
                 }
+                if (_warningCount > 0)
+                    parts.Add($"{_warningCount} type mismatch(es) requiring manual fix");
                 lblSyncSub.Text     = string.Join(", ", parts) + ".  Click Apply to execute DDL on the backend.";
                 btnApply.Visibility = Visibility.Visible;
                 btnNext.IsEnabled   = false;

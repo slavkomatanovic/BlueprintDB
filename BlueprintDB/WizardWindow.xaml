@@ -177,6 +177,10 @@
                               Content="Import foreign keys (if supported by backend)"
                               IsChecked="True" Margin="0,18,0,0"
                               ToolTip="When checked, foreign key constraints are read from the source database and saved as Relations in Blueprint."/>
+                    <CheckBox x:Name="chkImportSystemTables" Tag="CHK_IMPORT_SYSTEM_TABLES"
+                              Content="Import system tables / relations (MSys*)"
+                              IsChecked="False" Margin="18,6,0,0"
+                              ToolTip="When checked, MS Access system tables (MSys*) and their relations are included in the import. Unchecked by default — system tables are rarely needed in Blueprint."/>
                 </StackPanel>
 
                 <!-- Page 3: Import progress (Grid so ListBox can expand) -->

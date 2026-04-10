@@ -235,7 +235,8 @@ public static class DbSeeder
 
         // ── KonfiguracijaWindow ───────────────────────────────────────────────
         ("LBL_TIP",                "Type:"),
-        ("CHK_IMPORT_FKS",         "Import foreign keys (if supported by backend)"),
+        ("CHK_IMPORT_FKS",              "Import foreign keys (if supported by backend)"),
+        ("CHK_IMPORT_SYSTEM_TABLES",   "Import system tables / relations (MSys*)"),
 
         // ── License ───────────────────────────────────────────────────────────
         ("MENU_LICENSE",           "License"),
@@ -297,7 +298,7 @@ public static class DbSeeder
         ("FORM_TRANSFER",          "Transfer Database"),
         ("GRP_IZVOR",              "Source"),
         ("GRP_CILJ",               "Target"),
-        ("LBL_TIP",                "Type:"),
+        // LBL_TIP is a shared key already defined above
         ("LBL_PUTANJA",            "Path:"),
         ("CMD_TRANSFER",           "Transfer"),
         ("MSG_TRANSFER_SRC_EMPTY", "Please enter a source database path or connection string."),
@@ -357,6 +358,18 @@ public static class DbSeeder
 
     private static void SyncTranslations(BlueprintDbContext db, int languageId)
     {
+        // Remove duplicate Original keys — keep lowest Idrjecnik per (Idjezik, Original).
+        // A duplicate can arise if the same key appeared twice in _entries and was
+        // inserted twice into a fresh database (existing HashSet was computed once,
+        // before the insert loop, so the second occurrence was not caught).
+        db.Database.ExecuteSqlRaw(@"
+            DELETE FROM rjecnik
+            WHERE idrjecnik NOT IN (
+                SELECT MIN(idrjecnik)
+                FROM rjecnik
+                GROUP BY idjezik, original
+            )");
+
         var existing = db.Rjecniks
             .Where(r => r.Idjezik == languageId)
             .Select(r => r.Original!)
@@ -384,6 +397,7 @@ public static class DbSeeder
                 Skriven        = false,
                 Vremenskipecat = 0
             });
+            existing.Add(key); // prevent duplicate if key appears twice in _entries
             any = true;
         }
 
