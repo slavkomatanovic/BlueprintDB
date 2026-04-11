@@ -48,8 +48,12 @@ public static class DbSeeder
         ("FORM_KOLONE",            "Columns"),
 
         // ── Main menu ────────────────────────────────────────────────────────
+        ("MENU_FILE",              "File"),
+        ("MENU_SCHEMA",            "Schema"),
         ("MENU_METADATA",          "Metadata"),
         ("MENU_TOOLS",             "Tools"),
+        ("MENU_EXPORT_SCHEMA",     "Export Schema as SQL\u2026"),
+        ("MENU_TRANSFER_CLASSIC",  "Transfer Database (Classic)\u2026"),
         ("MENU_PROGRAMI",          "Programs"),
         ("MENU_TABELE",            "Tables"),
         ("MENU_SURPLUS",           "Surplus"),

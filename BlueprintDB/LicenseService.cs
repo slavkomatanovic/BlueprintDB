@@ -51,7 +51,13 @@ public static class LicenseService
     public static string?     ActiveKey   { get; private set; }
     private static string?    _instanceId;
 
-    public static bool IsPro => CurrentTier == LicenseTier.Pro;
+    /// <summary>
+    /// When true, all feature gates behave as if the license is Free —
+    /// regardless of the actual activated tier. For UI testing only.
+    /// </summary>
+    public static bool SimulateFree { get; set; } = false;
+
+    public static bool IsPro => !SimulateFree && CurrentTier == LicenseTier.Pro;
 
     // ── Feature gates ─────────────────────────────────────────────────────────
 

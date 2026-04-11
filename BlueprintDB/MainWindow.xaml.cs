@@ -22,6 +22,10 @@ public partial class MainWindow : Window
                 (mainContent.Content as HomeView)?.ShowUpdateBanner(update);
         };
         Closing  += (_, _) => WindowSettings.Save("MainWindow", this);
+
+#if DEBUG
+        menuSimulateFree.Visibility = Visibility.Visible;
+#endif
     }
 
     // ── Navigation ──────────────────────────────────────────────────────────
@@ -36,6 +40,7 @@ public partial class MainWindow : Window
         home.SchemaSyncRequested     += (_, _) => OpenSchemaSyncWizard();
         home.KonfiguracijaRequested  += (_, _) => OpenSetup();
         home.KrajRequested           += (_, _) => Application.Current.Shutdown();
+        home.UpgradeRequested        += (_, _) => PromptActivation();
 
         mainContent.Content = home;
         Width      = 900;
@@ -77,23 +82,16 @@ public partial class MainWindow : Window
     {
         if (!LicenseService.CanUseTransferWizard)
         {
-            if (!PromptActivation(
-                $"Transfer Data Wizard\n\nYou have used all {LicenseService.FreeTransferLimit} free runs."))
-                return;
+            if (!PromptActivation()) return;
             if (!LicenseService.CanUseTransferWizard) return;
         }
 
-        // Warn free users how many runs they have left (before the last one)
+        // Soft reminder for free users with 1-2 runs left (not a hard block)
         if (!LicenseService.IsPro)
         {
             int remaining = LicenseService.FreeTransferRunsRemaining;
             if (remaining <= 2)
-            {
-                var msg = remaining == 1
-                    ? "This is your last free Transfer Data Wizard run.\nUpgrade to Pro for unlimited transfers."
-                    : $"You have {remaining} free Transfer Data Wizard runs remaining.\nUpgrade to Pro for unlimited transfers.";
-                MessageBox.Show(msg, "Blueprint Free", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
+                PromptActivation(softReminder: true);
         }
 
         var win = new TransferWizardWindow { Owner = this };
@@ -109,19 +107,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Shows the activation window for a Pro feature.
-    /// Returns true if the user activated Pro, false if they cancelled.
+    /// Shows the styled Pro upgrade dialog.
+    /// When softReminder=true the dialog is shown but the caller does not gate on the result.
+    /// Returns true if the user activated Pro, false if they cancelled/dismissed.
     /// </summary>
-    private bool PromptActivation(string featureName)
+    private bool PromptActivation(bool softReminder = false)
     {
-        MessageBox.Show(
-            $"{featureName} requires Blueprint Pro.\n\nEnter your license key to activate.",
-            "Blueprint Pro Required",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
-
-        new LicenseActivationWindow { Owner = this }.ShowDialog();
+        new ProUpgradeDialog { Owner = this }.ShowDialog();
         UpdateStatusBar();
+        (mainContent.Content as HomeView)?.RefreshProBanner();
         return LicenseService.IsPro;
     }
 
@@ -149,7 +143,15 @@ public partial class MainWindow : Window
         lblBackend.Text = !string.IsNullOrEmpty(AppState.BackendDatabasePath)
             ? $"\uE8DA  {AppState.BackendDatabasePath}"
             : "";
-        badgePro.Visibility = LicenseService.IsPro ? Visibility.Visible : Visibility.Collapsed;
+        badgePro.Visibility     = LicenseService.IsPro ? Visibility.Visible : Visibility.Collapsed;
+        badgeSimFree.Visibility = LicenseService.SimulateFree ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void MenuSimulateFree_Click(object sender, RoutedEventArgs e)
+    {
+        LicenseService.SimulateFree  = menuSimulateFree.IsChecked;
+        UpdateStatusBar();
+        (mainContent.Content as HomeView)?.RefreshGetStarted();
     }
 
     private void CenterOnScreen()
@@ -224,8 +226,9 @@ public partial class MainWindow : Window
 
     private void MenuLicense_Click(object sender, RoutedEventArgs e)
     {
-        new LicenseActivationWindow { Owner = this }.ShowDialog();
-        UpdateStatusBar();  // refresh PRO badge after possible activation/deactivation
+        new ProUpgradeDialog { Owner = this }.ShowDialog();
+        UpdateStatusBar();
+        (mainContent.Content as HomeView)?.RefreshProBanner();
     }
 
     private void MenuHelpTopics_Click(object sender, RoutedEventArgs e)        => new HelpWindow { Owner = this }.Show();
@@ -255,6 +258,9 @@ public partial class MainWindow : Window
     private void MenuTransfer_Click(object sender, RoutedEventArgs e)          => new TransferWindow { Owner = this }.Show();
     private void MenuKonfiguracija_Click(object sender, RoutedEventArgs e)     => OpenSetup();
     private void MenuKraj_Click(object sender, RoutedEventArgs e)              => Application.Current.Shutdown();
+
+    private void MenuExportSchema_Click(object sender, RoutedEventArgs e)
+        => new ExportSchemaSqlDialog { Owner = this }.ShowDialog();
 
     private void MenuResetApp_Click(object sender, RoutedEventArgs e)
     {

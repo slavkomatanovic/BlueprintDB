@@ -15,6 +15,7 @@ public partial class HomeView : UserControl
     public event EventHandler? SchemaSyncRequested;
     public event EventHandler? KrajRequested;
     public event EventHandler? KonfiguracijaRequested;
+    public event EventHandler? UpgradeRequested;
 
     private UpdateCheckResult? _pendingUpdate;
 
@@ -50,31 +51,53 @@ public partial class HomeView : UserControl
         pnlUpdate.Visibility = Visibility.Collapsed;
     }
 
-    // Tracks whether the user dismissed the banner this session.
+    // Tracks whether the user dismissed banners this session.
     private bool _bannerDismissed;
+    private bool _proBannerDismissed;
 
     /// <summary>
-    /// Shows the Getting Started banner unless the user has already dismissed it this session.
-    /// Called on load and after a wizard completes (to re-hide if wizard was just finished).
+    /// Shows or hides the Getting Started and Unlock Pro banners.
+    /// Called on load and after a wizard completes.
     /// </summary>
     public void RefreshGetStarted()
     {
-        if (_bannerDismissed)
-        {
-            pnlGetStarted.Visibility = Visibility.Collapsed;
-            return;
-        }
-
+        bool hasProgrami = false;
         try
         {
             using var db = new BlueprintDbContext();
-            bool hasProgrami = db.Programis.Any(p => p.Skriven != true);
-            pnlGetStarted.Visibility = hasProgrami ? Visibility.Collapsed : Visibility.Visible;
+            hasProgrami = db.Programis.Any(p => p.Skriven != true);
         }
-        catch
+        catch { /* leave hasProgrami = false */ }
+
+        pnlGetStarted.Visibility = (!_bannerDismissed && !hasProgrami)
+            ? Visibility.Visible : Visibility.Collapsed;
+
+        RefreshProBanner(hasProgrami);
+    }
+
+    /// <summary>
+    /// Refreshes only the Pro upgrade banner (e.g. after a license activation).
+    /// </summary>
+    public void RefreshProBanner(bool? hasProgrami = null)
+    {
+        if (_proBannerDismissed || LicenseService.IsPro)
         {
-            pnlGetStarted.Visibility = Visibility.Visible;
+            pnlUnlockPro.Visibility = Visibility.Collapsed;
+            return;
         }
+
+        bool hasP = hasProgrami ?? false;
+        if (hasProgrami is null)
+        {
+            try
+            {
+                using var db = new BlueprintDbContext();
+                hasP = db.Programis.Any(p => p.Skriven != true);
+            }
+            catch { }
+        }
+
+        pnlUnlockPro.Visibility = hasP ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void BtnProgrami_Click(object sender, RoutedEventArgs e)
@@ -90,6 +113,15 @@ public partial class HomeView : UserControl
     {
         _bannerDismissed = true;
         pnlGetStarted.Visibility = Visibility.Collapsed;
+    }
+
+    private void BtnUpgradePro_Click(object sender, RoutedEventArgs e)
+        => UpgradeRequested?.Invoke(this, EventArgs.Empty);
+
+    private void BtnDismissUpgradePro_Click(object sender, RoutedEventArgs e)
+    {
+        _proBannerDismissed = true;
+        pnlUnlockPro.Visibility = Visibility.Collapsed;
     }
 
     private void BtnWizard_Click(object sender, RoutedEventArgs e)

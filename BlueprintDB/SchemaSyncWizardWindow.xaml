@@ -92,7 +92,21 @@
                     <TextBlock Text="Database type" FontWeight="SemiBold" FontSize="12"
                                Foreground="#374151" Margin="0,0,0,4"/>
                     <ComboBox x:Name="cbBackendType" Padding="6,4" FontSize="13"
-                              SelectionChanged="CbBackendType_SelectionChanged"/>
+                              SelectionChanged="CbBackendType_SelectionChanged">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <Border Background="#7C3AED" CornerRadius="3" Padding="5,1"
+                                            Margin="7,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding Converter={StaticResource BackendProConverter}}">
+                                        <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                                   Foreground="White"/>
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
                     <TextBlock x:Name="lblPath" Text="File path" FontWeight="SemiBold" FontSize="12"
                                Foreground="#374151" Margin="0,14,0,4"/>

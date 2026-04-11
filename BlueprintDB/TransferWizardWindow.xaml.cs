@@ -214,37 +214,7 @@ public partial class TransferWizardWindow : Window
     private void BtnTgtBrowseFolder_Click(object sender, RoutedEventArgs e)   => BrowseFolder(txtTgtFolder);
 
     private static void BrowseFile(TextBox t, ComboBox cb)
-    {
-        var dlg = new OpenFileDialog
-        {
-            Title  = "Select database file",
-            Filter = "Database files|*.sqlite;*.db;*.accdb;*.mdb;*.fdb;*.gdb|All files|*.*"
-        };
-        if (dlg.ShowDialog() != true) return;
-        t.Text = dlg.FileName;
-
-        var detected = DetectBackendFromExtension(dlg.FileName);
-        if (detected is not null)
-        {
-            cb.SelectedItem = detected.ToString();
-        }
-        else
-        {
-            var ext = System.IO.Path.GetExtension(dlg.FileName).ToLowerInvariant();
-            if (!string.IsNullOrEmpty(ext))
-                MessageBox.Show($"File extension '{ext}' does not match any supported database type.",
-                    "Unknown file type", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    }
-
-    private static BackendType? DetectBackendFromExtension(string filePath) =>
-        System.IO.Path.GetExtension(filePath).ToLowerInvariant() switch
-        {
-            ".sqlite" or ".db"   => BackendType.SQLite,
-            ".accdb"  or ".mdb"  => BackendType.Access,
-            ".fdb"    or ".gdb"  => BackendType.Firebird,
-            _                    => null
-        };
+        => WizardFileHelper.BrowseAndDetect(t, cb);
 
     private static void BrowseFolder(TextBox t)
     {

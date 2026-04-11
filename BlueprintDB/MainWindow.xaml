@@ -29,11 +29,32 @@
         <!-- ── Menu bar ──────────────────────────────────────────────────── -->
         <Menu Grid.Row="0" x:Name="mainMenu">
 
-            <!-- Metadata: Programs + Tables hierarchy -->
-            <MenuItem Header="Metadata" Tag="MENU_METADATA">
+            <!-- File -->
+            <MenuItem Header="File" Tag="MENU_FILE">
                 <MenuItem.Icon>
                     <TextBlock Text="&#xE8A5;" Style="{StaticResource MenuIcon}"
                                Foreground="#0F766E"/>
+                </MenuItem.Icon>
+                <MenuItem Header="Export Schema as SQL…" Tag="MENU_EXPORT_SCHEMA" Click="MenuExportSchema_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE8A5;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0F766E"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Exit" Tag="MENU_KRAJ" Click="MenuKraj_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE7E8;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#DC2626"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+
+            <!-- Schema (was: Metadata) -->
+            <MenuItem Header="Schema" Tag="MENU_SCHEMA">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE950;" Style="{StaticResource MenuIcon}"
+                               Foreground="#059669"/>
                 </MenuItem.Icon>
                 <MenuItem Header="Programs" Tag="MENU_PROGRAMI" Click="MenuProgrami_Click">
                     <MenuItem.Icon>
@@ -41,17 +62,10 @@
                                    Foreground="#1D4ED8"/>
                     </MenuItem.Icon>
                 </MenuItem>
-                <Separator/>
                 <MenuItem Header="Tables / Columns" Tag="MENU_TABELE_KOLONE" Click="MenuTabele_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE9D2;" Style="{StaticResource MenuIcon}"
                                    Foreground="#059669"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Surplus" Tag="MENU_SURPLUS" Click="MenuSurplus_Click">
-                    <MenuItem.Icon>
-                        <TextBlock Text="&#xE710;" Style="{StaticResource MenuIcon}"
-                                   Foreground="#D97706"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Relations" Tag="MENU_RELACIJE" Click="MenuRelacije_Click">
@@ -60,16 +74,23 @@
                                    Foreground="#7C3AED"/>
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Rename tables" Tag="MENU_PROMJENA_NAZIVA" Click="MenuPromjenaNaziva_Click">
+                <MenuItem Header="Rename Tables" Tag="MENU_PROMJENA_NAZIVA" Click="MenuPromjenaNaziva_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE8AC;" Style="{StaticResource MenuIcon}"
                                    Foreground="#92400E"/>
                     </MenuItem.Icon>
                 </MenuItem>
+                <Separator/>
+                <MenuItem Header="Surplus" Tag="MENU_SURPLUS" Click="MenuSurplus_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE710;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#D97706"/>
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
 
-            <!-- Tools: Wizards + Data Migration + Configuration -->
-            <MenuItem Header="Tools" Tag="MENU_TOOLS">
+            <!-- Wizards (was: Tools) -->
+            <MenuItem Header="Wizards" Tag="MENU_WIZARDS">
                 <MenuItem.Icon>
                     <TextBlock Text="&#xE90F;" Style="{StaticResource MenuIcon}"
                                Foreground="#374151"/>
@@ -80,43 +101,61 @@
                                    Foreground="#D97706"/>
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Transfer Data Wizard…" Tag="MENU_TRANSFER_WIZARD" Click="MenuTransferWizard_Click">
-                    <MenuItem.Icon>
-                        <TextBlock Text="&#xE8AB;" Style="{StaticResource MenuIcon}"
-                                   Foreground="#0891B2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
                 <MenuItem Header="Schema Sync Wizard…" Tag="MENU_SCHEMA_SYNC" Click="MenuSchemaSyncWizard_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE895;" Style="{StaticResource MenuIcon}"
                                    Foreground="#7C3AED"/>
                     </MenuItem.Icon>
                 </MenuItem>
+                <Separator/>
+                <MenuItem Header="Transfer Data Wizard…" Tag="MENU_TRANSFER_WIZARD" Click="MenuTransferWizard_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE8AB;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0891B2"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
                 <MenuItem Header="Batch Schema Sync…" Tag="MENU_BATCH_SYNC" Click="MenuBatchSync_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE8F1;" Style="{StaticResource MenuIcon}"
                                    Foreground="#7C3AED"/>
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Matrix Import…" Tag="MENU_MATRIX_IMPORT" Click="MenuMatrixImport_Click">
+                <MenuItem x:Name="menuMatrixImport" Header="Matrix Import…" Tag="MENU_MATRIX_IMPORT"
+                          Click="MenuMatrixImport_Click" Visibility="Collapsed">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xECC4;" Style="{StaticResource MenuIcon}"
                                    Foreground="#0F766E"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator/>
-                <MenuItem Header="Data Migration" Tag="MENU_TRANSFER" Click="MenuTransfer_Click">
+                <MenuItem Header="Transfer Database (Classic)…" Tag="MENU_TRANSFER_CLASSIC" Click="MenuTransfer_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xECC4;" Style="{StaticResource MenuIcon}"
-                                   Foreground="#0891B2"/>
+                                   Foreground="#6B7280"/>
                     </MenuItem.Icon>
                 </MenuItem>
-                <Separator/>
+            </MenuItem>
+
+            <!-- Options -->
+            <MenuItem Header="Options" Tag="MENU_OPTIONS">
+                <MenuItem.Icon>
+                    <TextBlock Text="&#xE8E3;" Style="{StaticResource MenuIcon}"
+                               Foreground="#374151"/>
+                </MenuItem.Icon>
                 <MenuItem Header="Configuration" Tag="MENU_KONFIGURACIJA" Click="MenuKonfiguracija_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE8B8;" Style="{StaticResource MenuIcon}"
                                    Foreground="#6366F1"/>
                     </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Language" Tag="MENU_LANGUAGE" x:Name="menuLanguage"
+                          SubmenuOpened="MenuLanguage_SubmenuOpened">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE775;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#0891B2"/>
+                    </MenuItem.Icon>
+                    <MenuItem Header="…"/>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Header="Reset Application…" Tag="MENU_RESET_APP" Click="MenuResetApp_Click">
@@ -127,29 +166,11 @@
                 </MenuItem>
             </MenuItem>
 
-            <!-- Options: Language -->
-            <MenuItem Header="Options" Tag="MENU_OPTIONS">
-                <MenuItem.Icon>
-                    <TextBlock Text="&#xE8E3;" Style="{StaticResource MenuIcon}"
-                               Foreground="#374151"/>
-                </MenuItem.Icon>
-                <MenuItem Header="Language" Tag="MENU_LANGUAGE" x:Name="menuLanguage"
-                          SubmenuOpened="MenuLanguage_SubmenuOpened">
-                    <MenuItem.Icon>
-                        <TextBlock Text="&#xE775;" Style="{StaticResource MenuIcon}"
-                                   Foreground="#0891B2"/>
-                    </MenuItem.Icon>
-                    <MenuItem Header="…"/>
-                </MenuItem>
-            </MenuItem>
-
-            <!-- License -->
-            <MenuItem Header="License" Tag="MENU_LICENSE" Click="MenuLicense_Click">
-                <MenuItem.Icon>
-                    <TextBlock Text="&#xE735;" Style="{StaticResource MenuIcon}"
-                               Foreground="#F59E0B"/>
-                </MenuItem.Icon>
-            </MenuItem>
+            <!-- Dev: Free Tier Simulation — shown only in Debug builds (see MainWindow constructor) -->
+            <MenuItem x:Name="menuSimulateFree" Header="⬡ Simulate Free Tier"
+                      IsCheckable="True" Click="MenuSimulateFree_Click"
+                      Visibility="Collapsed"
+                      ToolTip="Toggle Free tier simulation — hides Pro features regardless of license. For testing only."/>
 
             <!-- Help -->
             <MenuItem Header="Help" Tag="MENU_HELP">
@@ -170,19 +191,19 @@
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator/>
+                <MenuItem Header="License" Tag="MENU_LICENSE" Click="MenuLicense_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE735;" Style="{StaticResource MenuIcon}"
+                                   Foreground="#F59E0B"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
                 <MenuItem Header="About Blueprint…" Tag="MENU_ABOUT" Click="MenuAbout_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE946;" Style="{StaticResource MenuIcon}"
                                    Foreground="#6366F1"/>
                     </MenuItem.Icon>
                 </MenuItem>
-            </MenuItem>
-
-            <MenuItem Header="Exit" Tag="MENU_KRAJ" Click="MenuKraj_Click">
-                <MenuItem.Icon>
-                    <TextBlock Text="&#xE7E8;" Style="{StaticResource MenuIcon}"
-                               Foreground="#DC2626"/>
-                </MenuItem.Icon>
             </MenuItem>
 
         </Menu>
@@ -201,11 +222,19 @@
                            TextTrimming="CharacterEllipsis" MaxWidth="400"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <Border x:Name="badgePro" Background="#F59E0B" CornerRadius="3"
-                        Padding="6,1" Margin="0,0,4,0" Visibility="Collapsed">
-                    <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
-                               Foreground="White" VerticalAlignment="Center"/>
-                </Border>
+                <StackPanel Orientation="Horizontal">
+                    <Border x:Name="badgeSimFree" Background="#DC2626" CornerRadius="3"
+                            Padding="6,1" Margin="0,0,6,0" Visibility="Collapsed"
+                            ToolTip="Free tier simulation is active — Pro features are hidden">
+                        <TextBlock Text="FREE SIM" FontSize="9" FontWeight="Bold"
+                                   Foreground="White" VerticalAlignment="Center"/>
+                    </Border>
+                    <Border x:Name="badgePro" Background="#F59E0B" CornerRadius="3"
+                            Padding="6,1" Margin="0,0,4,0" Visibility="Collapsed">
+                        <TextBlock Text="PRO" FontSize="9" FontWeight="Bold"
+                                   Foreground="White" VerticalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
             </StatusBarItem>
         </StatusBar>
     </Grid>

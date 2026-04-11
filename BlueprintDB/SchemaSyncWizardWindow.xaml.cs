@@ -224,14 +224,7 @@ public partial class SchemaSyncWizardWindow : Window
     }
 
     private void BtnBrowse_Click(object sender, RoutedEventArgs e)
-    {
-        var dlg = new OpenFileDialog
-        {
-            Title  = "Select database file",
-            Filter = "Database files|*.sqlite;*.db;*.accdb;*.mdb;*.fdb;*.gdb|All files|*.*"
-        };
-        if (dlg.ShowDialog() == true) txtPath.Text = dlg.FileName;
-    }
+        => WizardFileHelper.BrowseAndDetect(txtPath, cbBackendType);
 
     private void BtnBrowseFolder_Click(object sender, RoutedEventArgs e)
     {

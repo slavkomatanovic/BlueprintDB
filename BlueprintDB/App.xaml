@@ -5,6 +5,8 @@
              Startup="App_Startup">
     <Application.Resources>
 
+        <local:BackendProConverter x:Key="BackendProConverter"/>
+
         <!--
             FlatBtn — flat action button stil za sve CRUD prozore.
             Svaki button postavlja vlastiti Background; ovaj template daje

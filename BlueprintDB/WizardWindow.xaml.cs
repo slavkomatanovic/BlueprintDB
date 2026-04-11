@@ -25,7 +25,11 @@ public partial class WizardWindow : Window
         cbBackendType.ItemsSource   = Enum.GetNames<BackendType>();
         cbBackendType.SelectedIndex = 0;
         LoadExistingPrograms();
-        txtProgramName.Focus();
+        // Focus the dropdown if programs exist, otherwise go straight to the name field
+        if (cbExistingProgram.Items.Count > 0)
+            cbExistingProgram.Focus();
+        else
+            txtProgramName.Focus();
         WindowSettings.Restore("WizardWindow", this);
         Closing += (_, _) => WindowSettings.Save("WizardWindow", this);
     }
