@@ -320,8 +320,13 @@ public sealed class AccessBackendConnector : IBackendConnector
     public void AddForeignKey(string constraintName, string childTable, string childColumn,
                               string parentTable, string parentColumn, bool cascade)
     {
+        // OleDb schema cache does not refresh after DDL (CREATE TABLE / ADD COLUMN).
+        // Reconnect forces the cache to reset so GetOleDbSchemaTable and CREATE INDEX
+        // can see columns that were added in the same session.
+        if (_conn.State != ConnectionState.Closed) _conn.Close();
+        _conn.Open();
+
         // Access requires the child column to be indexed before a FK constraint can be defined.
-        // If the column was just added via ADD COLUMN it won't have an index yet.
         EnsureColumnIndexed(childTable, childColumn);
 
         // Access Jet SQL doesn't support ON DELETE/UPDATE CASCADE via DDL
