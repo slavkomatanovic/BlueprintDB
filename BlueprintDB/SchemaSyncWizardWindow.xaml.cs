@@ -605,10 +605,18 @@ public partial class SchemaSyncWizardWindow : Window
                             ? $"FK_{rel.Tabelad}_{rel.Tabelal}"
                             : rel.Nazivrelacije;
 
-                        connector.AddForeignKey(constraintName, rel.Tabelad, rel.Polje,
-                                                rel.Tabelal, rel.Polje, rel.Updatedeletecascade);
-                        LogService.Info("SchemaSync", $"FK created: {rel.Tabelad}.{rel.Polje} → {rel.Tabelal}");
-                        fksAdded++;
+                        try
+                        {
+                            connector.AddForeignKey(constraintName, rel.Tabelad, rel.Polje,
+                                                    rel.Tabelal, rel.Polje, rel.Updatedeletecascade);
+                            LogService.Info("SchemaSync", $"FK created: {rel.Tabelad}.{rel.Polje} → {rel.Tabelal}");
+                            fksAdded++;
+                        }
+                        catch (Exception fkEx)
+                        {
+                            LogService.Warning("SchemaSync",
+                                $"FK skipped [{constraintName}] {rel.Tabelad}.{rel.Polje} → {rel.Tabelal}: {fkEx.Message}");
+                        }
                     }
                 }
             });

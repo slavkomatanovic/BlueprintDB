@@ -247,9 +247,17 @@ public static class SchemaSyncService
                         var fkName = string.IsNullOrWhiteSpace(rel.Nazivrelacije)
                             ? $"FK_{rel.Tabelad}_{rel.Tabelal}"
                             : rel.Nazivrelacije;
-                        connector.AddForeignKey(fkName, rel.Tabelad, rel.Polje,
-                            rel.Tabelal, rel.Polje, rel.Updatedeletecascade);
-                        fksAdded++;
+                        try
+                        {
+                            connector.AddForeignKey(fkName, rel.Tabelad, rel.Polje,
+                                rel.Tabelal, rel.Polje, rel.Updatedeletecascade);
+                            fksAdded++;
+                        }
+                        catch (Exception fkEx)
+                        {
+                            LogService.Warning("BatchSync",
+                                $"FK skipped [{fkName}] {rel.Tabelad}.{rel.Polje} → {rel.Tabelal}: {fkEx.Message}");
+                        }
                     }
                 }
 

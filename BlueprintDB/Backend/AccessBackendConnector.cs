@@ -357,13 +357,17 @@ public sealed class AccessBackendConnector : IBackendConnector
             }
 
             var idxName = $"IX_{tableName}_{columnName}";
+            if (idxName.Length > 64)
+                idxName = idxName[..64];
+
             using var cmd = new OleDbCommand(
                 $"CREATE INDEX [{idxName}] ON [{tableName}] ([{columnName}])", _conn);
             cmd.ExecuteNonQuery();
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore — if index creation fails the FK DDL will throw with the original error
+            LogService.Warning("Access",
+                $"EnsureColumnIndexed failed for [{tableName}].[{columnName}]: {ex.Message}");
         }
     }
 
