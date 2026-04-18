@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.OleDb;
 using System.IO;
 using System.Text;
+using Microsoft.Win32;
 
 namespace Blueprint.App.Backend;
 
@@ -35,7 +36,15 @@ public sealed class DBaseBackendConnector : IBackendConnector
         _conn = new OleDbConnection(cs);
     }
 
-    public void Open() => _conn.Open();
+    public void Open()
+    {
+        if (!AccessBackendConnector.IsAceDriverAvailable())
+            throw new InvalidOperationException(
+                "Microsoft Access Database Engine (ACE OleDb) is not installed.\n\n" +
+                "Download the 64-bit redistributable (AccessDatabaseEngine_X64.exe):\n" +
+                "https://www.microsoft.com/en-us/download/details.aspx?id=54920");
+        _conn.Open();
+    }
 
     // ── Read / DDL (ACE OleDb) ────────────────────────────────────────────────
 
